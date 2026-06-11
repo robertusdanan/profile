@@ -100,6 +100,25 @@ if (empty($links)) {
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <link rel="icon" href="/favicon.ico"/>
 <title><?= htmlspecialchars($profile['handle']) ?></title>
+<?php
+$og_title       = htmlspecialchars($profile['name']);
+$og_description = htmlspecialchars($profile['tagline']);
+$og_url         = 'https://' . ($_SERVER['HTTP_HOST'] ?? 'robertusdanan.onrender.com') . '/';
+$og_image       = $og_url . 'og.jpg';
+?>
+<!-- Open Graph / WhatsApp -->
+<meta property="og:type"        content="website"/>
+<meta property="og:url"         content="<?= $og_url ?>"/>
+<meta property="og:title"       content="<?= $og_title ?>"/>
+<meta property="og:description" content="<?= $og_description ?>"/>
+<meta property="og:image"       content="<?= $og_image ?>"/>
+<meta property="og:image:width"  content="1200"/>
+<meta property="og:image:height" content="630"/>
+<!-- Twitter Card (fallback) -->
+<meta name="twitter:card"        content="summary_large_image"/>
+<meta name="twitter:title"       content="<?= $og_title ?>"/>
+<meta name="twitter:description" content="<?= $og_description ?>"/>
+<meta name="twitter:image"       content="<?= $og_image ?>"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet"/>
 <style>
