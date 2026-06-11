@@ -366,6 +366,45 @@ html, body { width:100%; height:100%; overflow:hidden; background:var(--void); f
 .btn-go:hover::before { transform:scaleX(1); }
 .btn-go:hover { color:var(--void); box-shadow:0 0 22px rgba(79,128,255,0.35); }
 .btn-go span { position:relative; z-index:1; }
+/* ── CLOSE BUTTON ── */
+.close-btn {
+  position: fixed;
+  top: 22px;
+  right: 24px;
+  z-index: 50;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: rgba(10, 15, 28, 0.72);
+  border: 1px solid rgba(79, 128, 255, 0.18);
+  color: var(--mist);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  transition: border-color .3s, background .3s, color .3s, transform .3s var(--ease-spring), box-shadow .3s;
+  animation: card-in 1.5s var(--ease-expo) 0.8s both;
+}
+.close-btn:hover {
+  border-color: rgba(255, 90, 90, 0.55);
+  background: rgba(255, 60, 60, 0.1);
+  color: #ff8080;
+  transform: rotate(90deg) scale(1.1);
+  box-shadow: 0 0 20px rgba(255, 60, 60, 0.18);
+}
+.close-btn:active {
+  transform: rotate(90deg) scale(0.95);
+}
+.close-btn svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
 </style>
 </head>
 <body>
@@ -373,7 +412,13 @@ html, body { width:100%; height:100%; overflow:hidden; background:var(--void); f
 <canvas id="cosmos"></canvas>
 <div class="noise"></div>
 <div class="scan"></div>
-
+<!-- CLOSE BUTTON -->
+<button class="close-btn" onclick="if(!window.close()) window.history.back()" title="Tutup halaman" aria-label="Tutup halaman">
+  <svg viewBox="0 0 16 16">
+    <line x1="2" y1="2" x2="14" y2="14"/>
+    <line x1="14" y1="2" x2="2" y2="14"/>
+  </svg>
+</button>
 <div class="stage">
   <div class="card">
     <div class="card-inner-glow"></div>
