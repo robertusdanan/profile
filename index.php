@@ -821,8 +821,8 @@ const LINKS = <?= json_encode($links, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SL
   camera.position.set(0, 0, 42);
 
   // ── TEXTURE LOADER ────────────────────────────────────
-  // Semua tekstur planet dimuat dari folder /textures (tidak hardcode di JS)
-  const TEX_BASE = 'textures/';
+  // Semua tekstur planet dimuat dari Supabase Storage (bucket: textures)
+  const TEX_BASE = '<?= rtrim(SUPABASE_URL, '/') ?>/storage/v1/object/public/textures/';
   const texLoader = new THREE.TextureLoader();
   function planetTex(file, { srgb = true } = {}) {
     const t = texLoader.load(TEX_BASE + file);
