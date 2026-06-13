@@ -457,13 +457,19 @@ html, body { width:100%; height:100%; overflow:hidden; background:var(--void); f
 
 <!-- Secrets di-load dari config.js yang di-generate GitHub Actions -->
 <script>
+// Flag global — di-set true setelah config.js selesai load
+window.__configReady = false;
+window.__configCallback = null;
+
+function __onConfigLoaded() {
+  window.__configReady = true;
+  if (typeof window.__configCallback === 'function') {
+    window.__configCallback();
+  }
+}
+
 (function() {
   var base = window.location.pathname.replace(/\/[^/]*$/, '/');
-
-  function onConfigReady() {
-    // Dispatch event sehingga kode utama tahu config sudah siap
-    document.dispatchEvent(new Event('configready'));
-  }
 
   function loadScript(src, onSuccess, onFail) {
     var s = document.createElement('script');
@@ -473,20 +479,15 @@ html, body { width:100%; height:100%; overflow:hidden; background:var(--void); f
     document.head.appendChild(s);
   }
 
-  // Coba dari folder yang sama dulu, lalu root sebagai fallback
   loadScript(
     base + 'config.js',
-    onConfigReady,
+    __onConfigLoaded,
     function() {
-      console.error('[config] Gagal muat dari: ' + base + 'config.js');
-      loadScript(
-        '/config.js',
-        onConfigReady,
-        function() {
-          console.error('[config] Gagal juga dari root /config.js — pakai fallback');
-          onConfigReady(); // tetap lanjutkan dengan fallback data
-        }
-      );
+      console.warn('[config] Gagal dari: ' + base + 'config.js, coba root...');
+      loadScript('/config.js', __onConfigLoaded, function() {
+        console.warn('[config] Gagal juga dari root — pakai fallback');
+        __onConfigLoaded();
+      });
     }
   );
 })();
@@ -1057,8 +1058,8 @@ function initThree() {
 }
 
 // ─── KICK OFF ─────────────────────────────────────────
-// Tunggu config.js selesai di-load sebelum init()
-document.addEventListener('configready', function() {
+// Gunakan flag + callback — anti race condition
+function __startApp() {
   const CFG2 = window.APP_CONFIG || {};
   SUPABASE_URL  = CFG2.SUPABASE_URL  || '';
   SUPABASE_ANON = CFG2.SUPABASE_ANON || '';
@@ -1068,12 +1069,20 @@ document.addEventListener('configready', function() {
   console.log('SUPABASE_URL:', SUPABASE_URL ? SUPABASE_URL.replace(/\/\/.*\.supabase/, '//[hidden].supabase') : '❌ KOSONG');
   console.log('SUPABASE_ANON:', SUPABASE_ANON ? '✅ ada (' + SUPABASE_ANON.length + ' karakter)' : '❌ KOSONG');
   if (!SUPABASE_URL || !SUPABASE_ANON) {
-    console.warn('Config belum terisi — akan pakai data fallback.');
+    console.warn('Config belum terisi — pakai fallback data.');
   }
   console.groupEnd();
 
   init();
-});
+}
+
+// Kalau config.js sudah selesai load sebelum script ini jalan → langsung start
+// Kalau belum → pasang callback, nanti dipanggil oleh __onConfigLoaded()
+if (window.__configReady) {
+  __startApp();
+} else {
+  window.__configCallback = __startApp;
+}
 </script>
 </body>
 </html>
