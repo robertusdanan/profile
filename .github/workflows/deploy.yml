@@ -13,30 +13,32 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Inject secrets into config.js
+      - name: Generate config.js from template
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON: ${{ secrets.SUPABASE_ANON }}
         run: |
           sed \
-            -e "s|PLACEHOLDER_SUPABASE_URL|${{ secrets.SUPABASE_URL }}|g" \
-            -e "s|PLACEHOLDER_SUPABASE_ANON|${{ secrets.SUPABASE_ANON }}|g" \
+            -e "s|PLACEHOLDER_SUPABASE_URL|${SUPABASE_URL}|g" \
+            -e "s|PLACEHOLDER_SUPABASE_ANON|${SUPABASE_ANON}|g" \
             config.template.js > config.js
 
-          echo "=== Cek placeholder (harusnya tidak ada output) ==="
-          grep "PLACEHOLDER" config.js && echo "GAGAL: placeholder belum terganti!" || echo "OK: secrets berhasil di-inject"
+          echo "✅ config.js berhasil di-generate"
+          # Verifikasi placeholder sudah terganti (tanpa tampilkan nilai asli)
+          if grep -q "PLACEHOLDER" config.js; then
+            echo "❌ ERROR: Masih ada placeholder yang belum terganti. Cek GitHub Secrets!"
+            exit 1
+          fi
+          echo "✅ Semua placeholder berhasil terganti"
 
-          echo "=== Isi config.js ==="
-          cat config.js
-
-      - name: List files before deploy
-        run: |
-          echo "=== File yang akan di-deploy ==="
-          ls -la
-
-      - name: Deploy to GitHub Pages
+      - name: Deploy ke branch gh-pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./
-          exclude_assets: '.github,config.template.js,README.md'
+          publish_branch: gh-pages
+          # Pastikan config.js ikut ter-deploy meskipun ada di .gitignore
+          exclude_assets: '.gitignore,.git'
