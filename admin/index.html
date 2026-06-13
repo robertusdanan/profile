@@ -667,8 +667,8 @@ function __onConfigLoaded() {
 // ════════════════════════════════════════════
 // GLOBALS
 // ════════════════════════════════════════════
-let SB_URL          = '';
-let SB_SERVICE_ROLE = '';
+let SB_URL  = '';
+let SB_ANON = '';
 let SESSION_TOKEN = localStorage.getItem('admin_token') || '';
 let CURRENT_USER  = '';
 let iconBase64 = null;
@@ -682,12 +682,13 @@ let linkItems = [];
 // ════════════════════════════════════════════
 async function sbFetch(path, method = 'GET', body = null, extraHeaders = {}) {
   const headers = {
-    'apikey':        SB_SERVICE_ROLE,
-    'Authorization': `Bearer ${SB_SERVICE_ROLE}`,
+    'apikey':        SB_ANON,
+    'Authorization': `Bearer ${SB_ANON}`,
     'Content-Type':  'application/json',
     'Accept':        'application/json',
     ...extraHeaders,
   };
+  if (SESSION_TOKEN) headers['X-Admin-Token'] = SESSION_TOKEN;
 
   const opts = { method, headers, signal: AbortSignal.timeout(8000) };
   if (body) opts.body = JSON.stringify(body);
@@ -705,8 +706,8 @@ async function rpcFetch(fn, params) {
   const res = await fetch(`${SB_URL}/rest/v1/rpc/${fn}`, {
     method: 'POST',
     headers: {
-      'apikey': SB_SERVICE_ROLE,
-      'Authorization': `Bearer ${SB_SERVICE_ROLE}`,
+      'apikey': SB_ANON,
+      'Authorization': `Bearer ${SB_ANON}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(params),
@@ -814,10 +815,10 @@ function enterApp() {
 
 async function startApp() {
   const cfg = window.APP_CONFIG || {};
-  SB_URL          = cfg.SUPABASE_URL          || '';
-  SB_SERVICE_ROLE = cfg.SUPABASE_SERVICE_ROLE || '';
+  SB_URL  = cfg.SUPABASE_URL  || '';
+  SB_ANON = cfg.SUPABASE_ANON || '';
 
-  if (!SB_URL || !SB_SERVICE_ROLE) {
+  if (!SB_URL || !SB_ANON) {
     toast('Config Supabase tidak ditemukan. Pastikan config.js sudah di-deploy.', 'error');
     return;
   }
