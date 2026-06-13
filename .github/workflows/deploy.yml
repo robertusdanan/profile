@@ -18,16 +18,18 @@ jobs:
 
       - name: Generate config.js
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON: ${{ secrets.SUPABASE_ANON }}
+          SUPABASE_URL:          ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON:         ${{ secrets.SUPABASE_ANON }}
+          SUPABASE_SERVICE_ROLE: ${{ secrets.SUPABASE_SERVICE_ROLE }}
         run: |
           sed \
             -e "s|PLACEHOLDER_SUPABASE_URL|${SUPABASE_URL}|g" \
             -e "s|PLACEHOLDER_SUPABASE_ANON|${SUPABASE_ANON}|g" \
+            -e "s|PLACEHOLDER_SUPABASE_SERVICE_ROLE|${SUPABASE_SERVICE_ROLE}|g" \
             config.template.js > config.js
 
           if grep -q "PLACEHOLDER" config.js; then
-            echo "ERROR: Secrets belum terisi!"
+            echo "ERROR: Masih ada placeholder yang belum terganti. Cek GitHub Secrets!"
             exit 1
           fi
           echo "config.js OK"
@@ -38,6 +40,7 @@ jobs:
         run: |
           mkdir -p /tmp/deploy
           cp index.html  /tmp/deploy/
+          cp admin.html  /tmp/deploy/ 2>/dev/null || true
           cp config.js   /tmp/deploy/
           cp favicon.ico /tmp/deploy/ 2>/dev/null || true
           cp og.jpg      /tmp/deploy/ 2>/dev/null || true
