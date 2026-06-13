@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<link rel="icon" href="/favicon.ico"/>
+<link rel="icon" href="favicon.ico"/>
 <title>@robertusdanan</title>
 
 <!-- Open Graph / WhatsApp — diupdate via JS setelah data fetch -->
@@ -458,19 +458,37 @@ html, body { width:100%; height:100%; overflow:hidden; background:var(--void); f
 <!-- Secrets di-load dari config.js yang di-generate GitHub Actions -->
 <script>
 (function() {
-  var s = document.createElement('script');
-  // Coba dari folder yang sama dulu, lalu root sebagai fallback
   var base = window.location.pathname.replace(/\/[^/]*$/, '/');
-  s.src = base + 'config.js';
-  s.onerror = function() {
-    console.error('[config] Gagal muat config.js dari: ' + s.src);
-    // Fallback: coba root
-    var s2 = document.createElement('script');
-    s2.src = '/config.js';
-    s2.onerror = function() { console.error('[config] Gagal juga dari root /config.js'); };
-    document.head.appendChild(s2);
-  };
-  document.head.appendChild(s);
+
+  function onConfigReady() {
+    // Dispatch event sehingga kode utama tahu config sudah siap
+    document.dispatchEvent(new Event('configready'));
+  }
+
+  function loadScript(src, onSuccess, onFail) {
+    var s = document.createElement('script');
+    s.src = src;
+    s.onload = onSuccess;
+    s.onerror = onFail;
+    document.head.appendChild(s);
+  }
+
+  // Coba dari folder yang sama dulu, lalu root sebagai fallback
+  loadScript(
+    base + 'config.js',
+    onConfigReady,
+    function() {
+      console.error('[config] Gagal muat dari: ' + base + 'config.js');
+      loadScript(
+        '/config.js',
+        onConfigReady,
+        function() {
+          console.error('[config] Gagal juga dari root /config.js — pakai fallback');
+          onConfigReady(); // tetap lanjutkan dengan fallback data
+        }
+      );
+    }
+  );
 })();
 </script>
 
@@ -543,19 +561,9 @@ html, body { width:100%; height:100%; overflow:hidden; background:var(--void); f
 // ═══════════════════════════════════════════════════════
 // CONFIG — dibaca dari window.APP_CONFIG (di-inject GitHub Actions)
 // ═══════════════════════════════════════════════════════
-const CFG = window.APP_CONFIG || {};
-const SUPABASE_URL  = CFG.SUPABASE_URL  || '';
-const SUPABASE_ANON = CFG.SUPABASE_ANON || '';
-
-// Debug — buka DevTools Console (F12) untuk melihat status config
-console.group('[Linktree Config]');
-console.log('APP_CONFIG loaded:', !!window.APP_CONFIG);
-console.log('SUPABASE_URL:', SUPABASE_URL ? SUPABASE_URL.replace(/\/\/.*\.supabase/, '//[hidden].supabase') : '❌ KOSONG');
-console.log('SUPABASE_ANON:', SUPABASE_ANON ? '✅ ada (' + SUPABASE_ANON.length + ' karakter)' : '❌ KOSONG');
-if (!SUPABASE_URL || !SUPABASE_ANON) {
-  console.warn('Config belum terisi — akan pakai data fallback. Pastikan GitHub Actions sudah inject secrets ke config.js');
-}
-console.groupEnd();
+// Nilai diisi setelah event 'configready' (tunggu config.js selesai load)
+let SUPABASE_URL  = '';
+let SUPABASE_ANON = '';
 
 // ─── FALLBACK DATA ────────────────────────────────────
 const FALLBACK_PROFILE = {
@@ -1049,7 +1057,23 @@ function initThree() {
 }
 
 // ─── KICK OFF ─────────────────────────────────────────
-init();
+// Tunggu config.js selesai di-load sebelum init()
+document.addEventListener('configready', function() {
+  const CFG2 = window.APP_CONFIG || {};
+  SUPABASE_URL  = CFG2.SUPABASE_URL  || '';
+  SUPABASE_ANON = CFG2.SUPABASE_ANON || '';
+
+  console.group('[Linktree Config]');
+  console.log('APP_CONFIG loaded:', !!window.APP_CONFIG);
+  console.log('SUPABASE_URL:', SUPABASE_URL ? SUPABASE_URL.replace(/\/\/.*\.supabase/, '//[hidden].supabase') : '❌ KOSONG');
+  console.log('SUPABASE_ANON:', SUPABASE_ANON ? '✅ ada (' + SUPABASE_ANON.length + ' karakter)' : '❌ KOSONG');
+  if (!SUPABASE_URL || !SUPABASE_ANON) {
+    console.warn('Config belum terisi — akan pakai data fallback.');
+  }
+  console.groupEnd();
+
+  init();
+});
 </script>
 </body>
 </html>
