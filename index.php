@@ -475,6 +475,202 @@ html, body { width:100%; height:100%; overflow:hidden; background:var(--void); f
   stroke-width: 2;
   stroke-linecap: round;
 }
+
+/* ── MOBILE AMBIENT GLOW ── */
+@media (max-width: 600px) {
+  .card::after {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: 20px;
+    background: linear-gradient(
+      135deg,
+      rgba(79,128,255,0.08) 0%,
+      transparent 40%,
+      rgba(155,114,248,0.06) 100%
+    );
+    pointer-events: none;
+    z-index: 0;
+  }
+  .card > * { position: relative; z-index: 1; }
+}
+
+/* ══════════════════════════════════════════
+   MOBILE RESPONSIVE — Elegant Edition
+   ══════════════════════════════════════════ */
+@media (max-width: 600px) {
+  /* Body & html: allow scrolling on mobile */
+  html, body {
+    overflow: auto;
+    overflow-x: hidden;
+    height: auto;
+    min-height: 100%;
+  }
+
+  /* Canvas stays fixed as background */
+  #cosmos {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+  }
+
+  /* Stage: full-height centered layout */
+  .stage {
+    position: relative;
+    z-index: 10;
+    min-height: 100dvh;
+    align-items: center;
+    justify-content: center;
+    padding: max(72px, env(safe-area-inset-top) + 52px) 18px max(36px, env(safe-area-inset-bottom) + 20px);
+  }
+
+  /* Card: refined glass panel */
+  .card {
+    width: 100%;
+    max-width: 400px;
+    margin: 0 auto;
+    padding: 44px 28px 40px;
+    border-radius: 20px;
+    border: 1px solid rgba(79,128,255,0.18);
+    background: rgba(7, 11, 22, 0.82);
+    backdrop-filter: blur(60px) saturate(1.8);
+    -webkit-backdrop-filter: blur(60px) saturate(1.8);
+    box-shadow:
+      0 0 0 1px rgba(79,128,255,0.08) inset,
+      0 40px 120px rgba(0,0,0,0.92),
+      0 0 80px rgba(79,128,255,0.06),
+      inset 0 1px 0 rgba(255,255,255,0.05);
+  }
+
+  /* Avatar — bigger, more prominent on mobile */
+  .avatar {
+    width: 96px;
+    height: 96px;
+    box-shadow:
+      0 0 0 3px rgba(79,128,255,0.12),
+      0 0 50px rgba(79,128,255,0.22),
+      inset 0 1px 0 rgba(255,255,255,0.08);
+  }
+  .avatar-initials { font-size: 26px; letter-spacing: 3px; }
+  .avatar-wrap { margin-bottom: 26px; }
+
+  /* Orbit ring slightly larger for bigger avatar */
+  .orbit-ring { inset: -12px; }
+
+  /* Name — clear hierarchy */
+  .name {
+    font-size: clamp(1.6rem, 8vw, 2.1rem);
+    letter-spacing: -0.02em;
+    line-height: 1.08;
+  }
+
+  /* Handle monospace tag */
+  .handle {
+    font-size: 0.62rem;
+    letter-spacing: 0.22em;
+    margin-top: 10px;
+    color: rgba(79,128,255,0.85);
+  }
+
+  /* Tagline */
+  .tagline {
+    font-size: 0.78rem;
+    margin-top: 7px;
+    color: rgba(96,112,144,0.9);
+    letter-spacing: 0.1em;
+  }
+
+  /* Divider spacing */
+  .divider { margin: 26px 0 22px; }
+
+  /* Link buttons — premium pill style on mobile */
+  .links { gap: 11px; }
+  .link-btn {
+    padding: 16px 18px;
+    gap: 14px;
+    border-radius: 14px;
+    border: 1px solid rgba(79,128,255,0.12);
+    background: rgba(255,255,255,0.025);
+    transition: border-color .25s, background .25s, box-shadow .25s;
+  }
+  .link-btn:hover,
+  .link-btn:active {
+    transform: none;
+    border-color: rgba(79,128,255,0.3);
+    background: rgba(79,128,255,0.06);
+    box-shadow: 0 4px 24px rgba(79,128,255,0.14), inset -3px 0 0 var(--accent);
+  }
+
+  /* Icon circle */
+  .ico {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    border: 1px solid rgba(79,128,255,0.15);
+    background: rgba(79,128,255,0.06);
+    flex-shrink: 0;
+  }
+
+  /* Button text */
+  .btn-title {
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+  }
+  .btn-sub {
+    font-size: 0.68rem;
+    margin-top: 3px;
+    color: rgba(96,112,144,0.85);
+  }
+
+  /* Arrow */
+  .arrow {
+    font-size: 14px;
+    opacity: 0.5;
+  }
+
+  /* Close button: tuck into safe area, pill style */
+  .close-btn {
+    top: max(16px, env(safe-area-inset-top));
+    right: 16px;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: rgba(7, 11, 22, 0.75);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+
+  /* Footer: static, inside scroll flow */
+  .footer {
+    position: relative;
+    bottom: auto;
+    margin-top: 22px;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+    font-size: 0.55rem;
+    letter-spacing: 0.3em;
+    color: rgba(79,128,255,0.22);
+  }
+
+  /* Modal: fit mobile viewport, rounded */
+  .modal {
+    padding: 40px 24px 32px;
+    width: 100%;
+    max-width: 370px;
+    margin: 0 auto;
+    border-radius: 20px;
+    border: 1px solid rgba(79,128,255,0.16);
+  }
+  .modal-actions { flex-direction: column; gap: 9px; }
+  .btn-cancel, .btn-go {
+    padding: 14px;
+    border-radius: 10px;
+    font-size: 0.65rem;
+    letter-spacing: 0.18em;
+  }
+  .btn-cancel { background: rgba(255,255,255,0.03); }
+  .modal-title { font-size: 1.4rem; }
+  .modal-domain { font-size: 0.6rem; letter-spacing: 0.16em; }
+}
 </style>
 </head>
 <body>
@@ -616,6 +812,9 @@ const LINKS = <?= json_encode($links, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SL
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.setSize(innerWidth, innerHeight);
+
+  // ── MOBILE DETECTION ──────────────────────────────────
+  const isMobile = () => window.innerWidth <= 600;
 
   const scene  = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(48, innerWidth / innerHeight, 0.1, 6000);
@@ -912,10 +1111,14 @@ const LINKS = <?= json_encode($links, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SL
 
   // ── ANIMATION LOOP ────────────────────────────────────
   let T = 0;
-  const earthBase   = earth.position.clone();
+  let earthBase = earth.position.clone();
   const moonOrbit   = { a: 24, speed: .006, phase: Math.PI*.3 };
   // 4D rotation state: two extra angle pairs for W-axis
   const ang4D = { xw: 0, yw: 0, zw: 0 };
+
+  // Update earthBase setiap resize agar bulan tetap orbit bumi
+  window.addEventListener('resize', () => { earthBase = earth.position.clone(); });
+  earthBase = earth.position.clone();
 
   (function tick() {
     requestAnimationFrame(tick);
@@ -978,16 +1181,71 @@ const LINKS = <?= json_encode($links, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SL
     scene.rotation.y += (px4 - scene.rotation.y) * .06;
 
     // Camera — slow breathing + 4D resonance (hanya gerakan depan-belakang, tidak naik/turun)
-    camera.position.z = 42 + Math.sin(T*.35)*.5 + Math.sin(T*.11 + ang4D.zw)*.18;
+    const baseCamZ = isMobile() ? 34 : 42;
+    camera.position.z = baseCamZ + Math.sin(T*.35)*.5 + Math.sin(T*.11 + ang4D.zw)*.18;
 
     renderer.render(scene, camera);
   })();
 
-  window.addEventListener('resize', () => {
+  // ── RESPONSIVE LAYOUT HELPER ──────────────────────────
+  function applyMobileLayout() {
+    const mobile = isMobile();
+
+    if (mobile) {
+      // Zoom kamera lebih dekat supaya Bumi terlihat besar di sisi kanan bawah
+      camera.fov = 62;
+      // Geser scene sedikit ke kiri agar Bumi tidak tertutup card
+      scene.position.set(1.2, 1.5, 0);
+      // Perkecil posisi planet agar lebih compact di layar sempit
+      earth.position.set(18, -14, -8);
+      sun.position.set(-80, 38, -160);
+      mercury.position.set(28, 20, -55);
+      ven.position.set(-52, 22, -80);
+      mars.position.set(-22, 12, -48);
+      jup.position.set(-42, 8, -78);
+      sat.position.set(44, 20, -100);
+      ringMesh.position.copy(sat.position);
+      uranus.position.set(62, -5, -130);
+      neptune.position.set(-85, -14, -170);
+      // Update earthFill position
+      earthFill.position.copy(earth.position);
+    } else {
+      camera.fov = 48;
+      scene.position.set(0, 0, 0);
+      // Restore original positions
+      earth.position.set(34, -24, -10);
+      sun.position.set(-120, 55, -200);
+      mercury.position.set(40, 30, -78);
+      ven.position.set(-75, 32, -115);
+      mars.position.set(-32, 18, -65);
+      jup.position.set(-60, 12, -110);
+      sat.position.set(65, 28, -145);
+      ringMesh.position.copy(sat.position);
+      uranus.position.set(90, -8, -185);
+      neptune.position.set(-120, -20, -240);
+      earthFill.position.copy(earth.position);
+    }
+
+    // Update atmosphere layers position
+    scene.children.forEach(obj => {
+      if (obj.isMesh && obj.material && obj.material.blending === THREE.AdditiveBlending
+          && obj !== earth && obj.geometry && obj.geometry.type === 'SphereGeometry') {
+        // atmosphere layers follow earth
+        obj.position.copy(earth.position);
+      }
+    });
+
+    // Update sunLight direction
+    sunLight.position.copy(sun.position);
+
     camera.aspect = innerWidth / innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(innerWidth, innerHeight);
-  });
+  }
+
+  window.addEventListener('resize', applyMobileLayout);
+  // Apply once on init
+  applyMobileLayout();
 })();
 
 // ═══════════════════════════════════════════
