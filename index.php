@@ -621,6 +621,17 @@ const LINKS = <?= json_encode($links, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SL
   const camera = new THREE.PerspectiveCamera(48, innerWidth / innerHeight, 0.1, 6000);
   camera.position.set(0, 0, 42);
 
+  // ── TEXTURE LOADER ────────────────────────────────────
+  // Semua tekstur planet dimuat dari folder /textures (tidak hardcode di JS)
+  const TEX_BASE = 'textures/';
+  const texLoader = new THREE.TextureLoader();
+  function planetTex(file, { srgb = true } = {}) {
+    const t = texLoader.load(TEX_BASE + file);
+    t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    if (srgb && THREE.sRGBEncoding !== undefined) t.encoding = THREE.sRGBEncoding;
+    return t;
+  }
+
   // ── HELPERS ──────────────────────────────────────────
   function cv(w, h) {
     const c = document.createElement('canvas');
@@ -684,204 +695,32 @@ const LINKS = <?= json_encode($links, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SL
     m.position.set(0, 0, -350); scene.add(m);
   }
 
-  // ── EARTH TEXTURE (4K equivalent detail) ─────────────
-  const earthTex = tx(4096, 2048, (x, w, h) => {
-    // Deep ocean with depth variation
-    const og = x.createLinearGradient(0, 0, w, h);
-    og.addColorStop(0,'#041640'); og.addColorStop(.15,'#061b50'); og.addColorStop(.35,'#07205e');
-    og.addColorStop(.55,'#082568'); og.addColorStop(.75,'#061b52'); og.addColorStop(1,'#041640');
-    x.fillStyle = og; x.fillRect(0,0,w,h);
-
-    // Ocean depth contours
-    for (let i = 0; i < 120; i++) {
-      x.strokeStyle = `rgba(8,48,160,${.025+Math.random()*.045})`; x.lineWidth = .8+Math.random()*1.8;
-      x.beginPath();
-      const y = Math.random()*h;
-      x.moveTo(0, y);
-      for (let j = 0; j < w; j += 28) x.lineTo(j, y + Math.sin(j*.008)*18 + (Math.random()-.5)*12);
-      x.stroke();
-    }
-
-    // Continents — more detailed, with sub-biome fills
-    const continents = [
-      // North America
-      { pts:[[310,145],[395,128],[445,140],[475,158],[495,195],[490,245],[470,295],[448,338],[420,360],[388,355],[358,320],[335,280],[315,248],[308,205],[312,172]], c:'#2e5c20', hi:'#3a7228' },
-      // South America
-      { pts:[[375,360],[428,342],[462,358],[478,400],[480,458],[462,528],[438,578],[405,608],[375,595],[348,552],[338,498],[342,438],[355,388]], c:'#2a581a', hi:'#336e22' },
-      // Europe
-      { pts:[[605,130],[665,120],[712,130],[735,148],[745,172],[730,195],[700,210],[668,218],[635,210],[612,192],[600,165],[600,148]], c:'#3d6e28', hi:'#4a8030' },
-      // Africa
-      { pts:[[595,200],[665,185],[730,195],[768,228],[788,285],[798,365],[782,448],[750,520],[710,568],[668,578],[630,562],[595,508],[575,445],[568,368],[574,295],[580,240]], c:'#3d6e24', hi:'#4a8030' },
-      // North Africa (Sahara overlay)
-      { pts:[[598,200],[735,188],[765,225],[745,280],[685,310],[618,298],[590,265],[590,225]], c:'#c8a830', hi:'#d4bc48' },
-      // Asia (west)
-      { pts:[[712,112],[825,95],[940,105],[1005,125],[1050,148],[1068,188],[1050,238],[998,268],[935,278],[872,272],[808,255],[752,228],[718,195],[708,162],[708,135]], c:'#3d6e24', hi:'#4a8030' },
-      // Asia (east extension)
-      { pts:[[940,105],[1060,90],[1160,108],[1220,135],[1248,178],[1240,228],[1205,265],[1155,285],[1095,282],[1040,268],[998,268],[1050,238],[1068,188],[1050,148],[1005,125]], c:'#3e6e24', hi:'#4a8028' },
-      // Siberia / Russia
-      { pts:[[780,65],[940,48],[1100,55],[1220,72],[1260,100],[1248,135],[1220,135],[1160,108],[1060,90],[940,105],[825,95],[750,110],[730,88]], c:'#355f1e', hi:'#3e7225' },
-      // India
-      { pts:[[870,255],[938,248],[972,275],[968,335],[940,395],[910,435],[875,428],[848,378],[840,318],[848,272]], c:'#4a7828', hi:'#5a8e30' },
-      // Southeast Asia
-      { pts:[[1000,238],[1065,232],[1108,252],[1115,298],[1092,328],[1055,322],[1018,295],[998,268]], c:'#3d6e24', hi:'#4a8030' },
-      // Australia
-      { pts:[[1005,448],[1088,432],[1158,445],[1198,482],[1205,538],[1182,588],[1128,608],[1065,612],[1015,580],[985,538],[978,485],[990,455]], c:'#8a6510', hi:'#a07c1a' },
-      // Greenland
-      { pts:[[445,62],[518,52],[555,68],[552,108],[528,132],[488,138],[452,122],[438,95]], c:'#c8dce8', hi:'#ddeef8' },
-      // Antarctica (partial)
-      { pts:[[0,970],[400,955],[800,950],[1200,945],[1600,950],[2048,960],[2048,1024],[0,1024]], c:'#d5e8f0', hi:'#e5f2f8' },
-    ];
-
-    continents.forEach(({ pts, c, hi }) => {
-      x.beginPath(); x.moveTo(pts[0][0]*w/2048, pts[0][1]*h/1024);
-      pts.forEach(([px,py]) => x.lineTo(px*w/2048, py*h/1024));
-      x.closePath();
-      // Base fill
-      x.fillStyle = c; x.fill();
-      // Terrain variation
-      x.fillStyle = 'rgba(0,0,0,.1)';
-      for (let i = 0; i < 12; i++) {
-        const mx = pts[Math.floor(Math.random()*pts.length)];
-        x.beginPath(); x.arc(mx[0]*w/2048+(Math.random()-.5)*30, mx[1]*h/1024+(Math.random()-.5)*20, 8+Math.random()*20, 0, Math.PI*2); x.fill();
-      }
-      // Highlight ridges
-      x.fillStyle = hi;
-      for (let i = 0; i < 5; i++) {
-        const mx = pts[Math.floor(Math.random()*pts.length)];
-        x.beginPath(); x.arc(mx[0]*w/2048+(Math.random()-.5)*15, mx[1]*h/1024+(Math.random()-.5)*10, 4+Math.random()*10, 0, Math.PI*2); x.fill();
-      }
-    });
-
-    // Polar ice caps — layered
-    const npg = x.createLinearGradient(0,0,0,110);
-    npg.addColorStop(0,'rgba(235,248,255,1)'); npg.addColorStop(.6,'rgba(220,242,252,.82)'); npg.addColorStop(1,'rgba(210,238,250,0)');
-    x.fillStyle = npg; x.fillRect(0,0,w,110);
-    x.fillStyle = 'rgba(215,238,252,.5)';
-    for (let i = 0; i < w; i+=2) x.fillRect(i, 90 + Math.sin(i*.04)*22 + Math.random()*18, 2, 45);
-    const spg = x.createLinearGradient(0,h-110,0,h);
-    spg.addColorStop(0,'rgba(235,248,255,0)'); spg.addColorStop(.4,'rgba(228,245,255,.82)'); spg.addColorStop(1,'rgba(235,248,255,1)');
-    x.fillStyle = spg; x.fillRect(0,h-110,w,110);
-
-    // Aurora borealis (subtle polar glow)
-    x.globalAlpha = .13;
-    ['rgba(80,255,160,.7)','rgba(60,200,255,.6)','rgba(160,80,255,.5)'].forEach((col,i) => {
-      const ag = x.createRadialGradient(w*(.25+i*.28), 40, 0, w*(.25+i*.28), 40, 220+i*60);
-      ag.addColorStop(0, col); ag.addColorStop(1,'rgba(0,0,0,0)');
-      x.fillStyle = ag; x.fillRect(0,0,w,180);
-    });
-    x.globalAlpha = 1;
-
-    // Cloud layer — more volumetric with fractal-like shapes
-    x.globalAlpha = .28;
-    for (let i = 0; i < 420; i++) {
-      const cx = Math.random()*w, cy = Math.random()*h;
-      const rx = 25+Math.random()*210, ry = 6+Math.random()*30;
-      const a  = (Math.random()-.5)*.8;
-      const g  = x.createRadialGradient(cx,cy,0,cx,cy,rx);
-      g.addColorStop(0,'rgba(255,255,255,1)'); g.addColorStop(.4,'rgba(255,255,255,.65)'); g.addColorStop(.75,'rgba(255,255,255,.2)'); g.addColorStop(1,'rgba(255,255,255,0)');
-      x.fillStyle = g; x.beginPath(); x.ellipse(cx,cy,rx,ry,a,0,Math.PI*2); x.fill();
-    }
-    x.globalAlpha = 1;
-
-    // City light bleed on dark side (very subtle warm dots near coasts)
-    x.globalAlpha = .055;
-    x.fillStyle = 'rgba(255,220,120,1)';
-    [[420,220],[640,165],[750,190],[820,165],[870,270],[1050,200],[1080,265],[480,380]].forEach(([cx,cy]) => {
-      for (let j = 0; j < 18; j++) x.fillRect(cx*w/2048+(Math.random()-.5)*35, cy*h/1024+(Math.random()-.5)*25, 1.5, 1.5);
-    });
-    x.globalAlpha = 1;
-  });
-
-  // ── EARTH SPECULAR ────────────────────────────────────
-  const earthSpec = tx(2048, 1024, (x, w, h) => {
-    x.fillStyle = '#060816'; x.fillRect(0,0,w,h);
-    // Ocean specular — bright
-    x.fillStyle = 'rgba(60,110,255,.55)'; x.fillRect(0,0,w,h);
-    // Mask continents
-    [[310,145,495,360],[375,360,480,608],[600,120,800,580],[700,65,1260,285],[870,255,972,435],[1005,448,1205,612],[445,62,555,138]].forEach(([x1,y1,x2,y2]) => {
-      x.fillStyle = 'rgba(0,0,0,.82)';
-      x.fillRect(x1*w/2048, y1*h/1024, (x2-x1)*w/2048, (y2-y1)*h/1024);
-    });
-  });
-
-  // ── EARTH NORMAL MAP (enhanced bump) ─────────────────
-  const earthBump = tx(2048, 1024, (x, w, h) => {
-    x.fillStyle = '#7f7f7f'; x.fillRect(0,0,w,h);
-    // Himalaya ridge
-    for (let i = 0; i < 80; i++) {
-      x.fillStyle = `rgba(210,210,210,${.2+Math.random()*.35})`;
-      x.beginPath(); x.arc(820*w/2048+Math.random()*120*w/2048, 195*h/1024+Math.random()*50*h/1024, 4+Math.random()*14, 0, Math.PI*2); x.fill();
-    }
-    // Andes
-    for (let i = 0; i < 60; i++) {
-      x.fillStyle = `rgba(200,200,200,${.18+Math.random()*.3})`;
-      x.beginPath(); x.arc(375*w/2048+Math.random()*18*w/2048, 380*h/1024+Math.random()*180*h/1024, 3+Math.random()*10, 0, Math.PI*2); x.fill();
-    }
-    // Rocky Mts
-    for (let i = 0; i < 40; i++) {
-      x.fillStyle = `rgba(195,195,195,${.15+Math.random()*.25})`;
-      x.beginPath(); x.arc(330*w/2048+Math.random()*28*w/2048, 160*h/1024+Math.random()*120*h/1024, 2+Math.random()*8, 0, Math.PI*2); x.fill();
-    }
-  });
-
-  // ── CLOUD TEXTURE (layered cirrus + cumulus) ──────────
-  const cloudTex = tx(4096, 2048, (x, w, h) => {
-    x.clearRect(0,0,w,h);
-    // Cirrus layer
-    x.globalAlpha = .4;
-    for (let i = 0; i < 300; i++) {
-      const cx = Math.random()*w, cy = Math.random()*h;
-      const rx = 80+Math.random()*320, ry = 4+Math.random()*14;
-      const g  = x.createRadialGradient(cx,cy,0,cx,cy,rx);
-      g.addColorStop(0,'rgba(255,255,255,.7)'); g.addColorStop(.5,'rgba(255,255,255,.3)'); g.addColorStop(1,'rgba(255,255,255,0)');
-      x.fillStyle = g; x.beginPath(); x.ellipse(cx,cy,rx,ry,(Math.random()-.5)*.6,0,Math.PI*2); x.fill();
-    }
-    // Cumulus layer
-    x.globalAlpha = .55;
-    for (let i = 0; i < 220; i++) {
-      const cx = Math.random()*w, cy = Math.random()*h;
-      const rx = 40+Math.random()*150, ry = 12+Math.random()*45;
-      const g  = x.createRadialGradient(cx,cy,0,cx,cy,rx);
-      g.addColorStop(0,'rgba(255,255,255,.9)'); g.addColorStop(.38,'rgba(255,255,255,.55)'); g.addColorStop(1,'rgba(255,255,255,0)');
-      x.fillStyle = g; x.beginPath(); x.ellipse(cx,cy,rx,ry,(Math.random()-.5)*.3,0,Math.PI*2); x.fill();
-    }
-    x.globalAlpha = 1;
-  });
-
-  // ── EARTH MESH ────────────────────────────────────────
-  const eR = 6.8;
+  // ── EARTH ─────────────────────────────────────────────
+  const earthTex   = planetTex('earth.jpg');
+  const eR = 14;
   const earth = new THREE.Mesh(
     new THREE.SphereGeometry(eR, 256, 256),
     new THREE.MeshPhongMaterial({
-      map:         earthTex,
-      bumpMap:     earthBump,
-      bumpScale:   .18,
-      specularMap: earthSpec,
-      specular:    new THREE.Color(.1, .22, .55),
-      shininess:   34,
+      map:       earthTex,
+      shininess: 10,
+      specular:  new THREE.Color(.08, .16, .35),
+      // Sedikit emissive supaya sisi malam tidak benar-benar hitam pekat
+      emissive:  new THREE.Color(0x0a0e18),
+      emissiveMap: earthTex,
+      emissiveIntensity: .06,
     })
   );
-  earth.position.set(22, -15, -1);
+  earth.position.set(34, -24, -10);
   earth.rotation.z = .4;
   scene.add(earth);
 
-  // Cloud shell
-  const clouds = new THREE.Mesh(
-    new THREE.SphereGeometry(eR * 1.015, 256, 256),
-    new THREE.MeshPhongMaterial({ map: cloudTex, transparent: true, opacity: .72, depthWrite: false, shininess: 8 })
-  );
-  clouds.position.copy(earth.position);
-  scene.add(clouds);
-
-  // Atmosphere layers — physically-based falloff
+  // Atmosphere rim glow — tipis dan natural, sama porsinya dengan planet lain
   [
-    { r: eR*1.022, op: .42, c: new THREE.Color(.28,.58,1)    },
-    { r: eR*1.05,  op: .25, c: new THREE.Color(.2,.5,.92)    },
-    { r: eR*1.09,  op: .14, c: new THREE.Color(.15,.42,.82)  },
-    { r: eR*1.14,  op: .07, c: new THREE.Color(.1,.32,.72)   },
-    { r: eR*1.22,  op: .032,c: new THREE.Color(.08,.22,.62)  },
-    { r: eR*1.35,  op: .014,c: new THREE.Color(.06,.16,.52)  },
-    { r: eR*1.55,  op: .005,c: new THREE.Color(.04,.1,.42)   },
+    { r: eR*1.012, op: .22, c: new THREE.Color(.4,.6,.95)    },
+    { r: eR*1.03,  op: .12, c: new THREE.Color(.3,.5,.9)     },
+    { r: eR*1.06,  op: .06, c: new THREE.Color(.2,.4,.82)    },
+    { r: eR*1.1,   op: .03, c: new THREE.Color(.14,.32,.75)  },
+    { r: eR*1.16,  op: .014,c: new THREE.Color(.1,.25,.65)   },
   ].forEach(({ r, op, c }) => {
     const m = new THREE.Mesh(
       new THREE.SphereGeometry(r, 64, 64),
@@ -889,29 +728,6 @@ const LINKS = <?= json_encode($links, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SL
     );
     m.position.copy(earth.position); scene.add(m);
   });
-
-  // Terminator shadow (night side darkening)
-  const terminatorGeo = new THREE.SphereGeometry(eR * 1.005, 64, 64);
-  const terminatorMat = new THREE.ShaderMaterial({
-    transparent: true, depthWrite: false, blending: THREE.MultiplyBlending,
-    uniforms: { sunDir: { value: new THREE.Vector3(-1, 0.4, -3).normalize() } },
-    vertexShader: `
-      varying vec3 vNormal;
-      void main() { vNormal = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
-    `,
-    fragmentShader: `
-      uniform vec3 sunDir;
-      varying vec3 vNormal;
-      void main() {
-        float d = dot(vNormal, sunDir);
-        float t = smoothstep(-.08, .18, d);
-        gl_FragColor = vec4(0.0, 0.0, 0.0, (1.0 - t) * .72);
-      }
-    `,
-  });
-  const terminator = new THREE.Mesh(terminatorGeo, terminatorMat);
-  terminator.position.copy(earth.position);
-  scene.add(terminator);
 
   // ── MOON ──────────────────────────────────────────────
   const moonTex = tx(1024, 512, (x, w, h) => {
@@ -933,43 +749,18 @@ const LINKS = <?= json_encode($links, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SL
     x.fillStyle = ld; x.fillRect(0,0,w,h);
   });
   const moon = new THREE.Mesh(
-    new THREE.SphereGeometry(1.6, 64, 64),
-    new THREE.MeshPhongMaterial({ map: moonTex, shininess: 2, specular: new THREE.Color(.04,.04,.04) })
+    new THREE.SphereGeometry(2, 64, 64),
+    new THREE.MeshPhongMaterial({ map: moonTex, shininess: 2, specular: new THREE.Color(.04,.04,.04), emissive: new THREE.Color(0xffffff), emissiveMap: moonTex, emissiveIntensity: .35 })
   );
   scene.add(moon);
 
   // ── SUN ───────────────────────────────────────────────
-  const sunTex = tx(1024, 1024, (x, w, h) => {
-    const g = x.createRadialGradient(w/2,h/2,0,w/2,h/2,w/2);
-    g.addColorStop(0,'#ffffff'); g.addColorStop(.04,'#fffef0'); g.addColorStop(.12,'#fff8b0');
-    g.addColorStop(.28,'#ffe040'); g.addColorStop(.5,'#ff9000'); g.addColorStop(.72,'#ff4400'); g.addColorStop(1,'rgba(255,30,0,0)');
-    x.fillStyle = g; x.beginPath(); x.arc(w/2,h/2,w/2,0,Math.PI*2); x.fill();
-    // Granulation
-    for (let i = 0; i < 600; i++) {
-      const a = Math.random()*Math.PI*2, r = Math.random()*w*.42;
-      x.fillStyle = `rgba(255,${180+Math.floor(Math.random()*75)},0,${.04+Math.random()*.14})`;
-      x.beginPath(); x.arc(w/2+r*Math.cos(a),h/2+r*Math.sin(a),1.5+Math.random()*8,0,Math.PI*2); x.fill();
-    }
-    // Prominences
-    for (let i = 0; i < 28; i++) {
-      const a = Math.random()*Math.PI*2, r = w*.42;
-      x.fillStyle = `rgba(255,${120+Math.floor(Math.random()*80)},0,${.09+Math.random()*.15})`;
-      x.beginPath(); x.ellipse(w/2+r*Math.cos(a),h/2+r*Math.sin(a),7+Math.random()*22,4+Math.random()*10,a,0,Math.PI*2); x.fill();
-    }
-  });
+  const sunTex = planetTex('sun.jpg');
   const sunR = 18;
-  const sun = new THREE.Mesh(new THREE.SphereGeometry(sunR,64,64), new THREE.MeshBasicMaterial({ map: sunTex }));
+  const sun = new THREE.Mesh(new THREE.SphereGeometry(sunR,128,128), new THREE.MeshBasicMaterial({ map: sunTex }));
   sun.position.set(-120, 55, -200);
   scene.add(sun);
-  // Corona layers
-  [
-    { r:sunR*1.35, op:.36, c:0xffcc33 }, { r:sunR*2.1,  op:.18, c:0xff9900 },
-    { r:sunR*3.4,  op:.08, c:0xff6600 }, { r:sunR*5.5,  op:.035,c:0xff3300 },
-    { r:sunR*9,    op:.014,c:0xff2200 }, { r:sunR*15,   op:.005,c:0xff1100 },
-  ].forEach(({ r, op, c }) => {
-    const m = new THREE.Mesh(new THREE.SphereGeometry(r,24,24), new THREE.MeshBasicMaterial({ color:c, transparent:true, opacity:op, depthWrite:false, blending:THREE.AdditiveBlending }));
-    m.position.copy(sun.position); scene.add(m);
-  });
+
 
   // ── LIGHTING ──────────────────────────────────────────
   const sunLight = new THREE.DirectionalLight(0xfff6e0, 2.4);
@@ -978,99 +769,46 @@ const LINKS = <?= json_encode($links, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SL
   sunLight.shadow.mapSize.width  = 2048;
   sunLight.shadow.mapSize.height = 2048;
   scene.add(sunLight);
-  scene.add(new THREE.AmbientLight(0x030510, 1.2));
+  scene.add(new THREE.AmbientLight(0x1a2030, .7));
   const fill = new THREE.DirectionalLight(0x1835a0, .28);
   fill.position.set(50,-20,30); scene.add(fill);
   // Subtle earth-reflected light (limb fill)
   const earthFill = new THREE.PointLight(0x2244aa, .6, 60);
   earthFill.position.copy(earth.position); scene.add(earthFill);
 
+  // Earth menggunakan sunLight & ambient yang sama seperti planet lain —
+  // tidak ada lampu tambahan khusus, agar tingkat kecerahan natural dan
+  // konsisten (sumber cahaya hanya dari Matahari).
+
+  // ── MERCURY ───────────────────────────────────────────
+  const mercTex = planetTex('mercury.jpg');
+  const mercury = new THREE.Mesh(new THREE.SphereGeometry(1.6,64,64), new THREE.MeshPhongMaterial({ map:mercTex, shininess:4, emissive: new THREE.Color(0xffffff), emissiveMap: mercTex, emissiveIntensity: .35 }));
+  mercury.position.set(40,30,-78); scene.add(mercury);
+
+  // ── VENUS ─────────────────────────────────────────────
+  const venusTex = planetTex('venus.jpg');
+  const ven = new THREE.Mesh(new THREE.SphereGeometry(2.6,64,64), new THREE.MeshPhongMaterial({ map:venusTex, shininess:18, emissive: new THREE.Color(0xffffff), emissiveMap: venusTex, emissiveIntensity: .35 }));
+  ven.position.set(-75,32,-115); scene.add(ven);
+
   // ── MARS ──────────────────────────────────────────────
-  const marsTex = tx(512, 256, (x, w, h) => {
-    const g = x.createLinearGradient(0,0,w,h);
-    g.addColorStop(0,'#aa3610'); g.addColorStop(.3,'#c04415'); g.addColorStop(.6,'#a23210'); g.addColorStop(1,'#aa3610');
-    x.fillStyle = g; x.fillRect(0,0,w,h);
-    // Valles Marineris
-    x.strokeStyle = 'rgba(60,18,5,.75)'; x.lineWidth = 9; x.beginPath();
-    x.moveTo(190,118); x.bezierCurveTo(275,113,368,122,455,115); x.stroke();
-    // Craters
-    for (let i = 0; i < 55; i++) {
-      const cx = Math.random()*w, cy = Math.random()*h, r = 2+Math.random()*24;
-      x.strokeStyle = `rgba(75,25,8,${.38+Math.random()*.42})`; x.lineWidth = 1.2;
-      x.beginPath(); x.arc(cx,cy,r,0,Math.PI*2); x.stroke();
-      x.fillStyle = `rgba(55,18,5,${.12+Math.random()*.18})`; x.fill();
-    }
-    // Olympus Mons halo
-    x.fillStyle = 'rgba(145,65,28,.42)'; x.beginPath(); x.arc(120*w/512,95*h/256,38,0,Math.PI*2); x.fill();
-    // Ice cap
-    x.fillStyle = 'rgba(235,228,218,.72)'; x.beginPath(); x.ellipse(w/2,12,w*.22,14,0,0,Math.PI*2); x.fill();
-    const lm = x.createRadialGradient(w/2,h/2,w*.28,w/2,h/2,w/2);
-    lm.addColorStop(0,'rgba(0,0,0,0)'); lm.addColorStop(.72,'rgba(0,0,0,.08)'); lm.addColorStop(1,'rgba(0,0,0,.52)');
-    x.fillStyle = lm; x.fillRect(0,0,w,h);
-  });
-  const mars = new THREE.Mesh(new THREE.SphereGeometry(2.3,64,64), new THREE.MeshPhongMaterial({ map:marsTex, shininess:5 }));
+  const marsTex = planetTex('mars.jpg');
+  const mars = new THREE.Mesh(new THREE.SphereGeometry(2.3,64,64), new THREE.MeshPhongMaterial({ map:marsTex, shininess:5, emissive: new THREE.Color(0xffffff), emissiveMap: marsTex, emissiveIntensity: .35 }));
   mars.position.set(-32,18,-65); scene.add(mars);
 
   // ── JUPITER ───────────────────────────────────────────
-  const jupTex = tx(2048, 1024, (x, w, h) => {
-    const bg = x.createLinearGradient(0,0,0,h);
-    bg.addColorStop(0,'#c8a272'); bg.addColorStop(.18,'#d4a85e'); bg.addColorStop(.38,'#b87640');
-    bg.addColorStop(.52,'#c88e4e'); bg.addColorStop(.68,'#d4a85e'); bg.addColorStop(1,'#c8a272');
-    x.fillStyle = bg; x.fillRect(0,0,w,h);
-    [
-      {y:20,h:11,c:'rgba(152,82,32,.62)'},{y:40,h:8,c:'rgba(208,158,88,.48)'},{y:55,h:17,c:'rgba(138,62,22,.68)'},
-      {y:80,h:22,c:'rgba(198,128,58,.52)'},{y:110,h:26,c:'rgba(142,68,26,.64)'},{y:145,h:17,c:'rgba(192,122,52,.5)'},
-      {y:170,h:13,c:'rgba(152,82,32,.58)'},{y:190,h:22,c:'rgba(132,58,20,.62)'},{y:218,h:15,c:'rgba(202,138,62,.47)'},
-      {y:242,h:11,c:'rgba(152,82,32,.52)'},{y:258,h:19,c:'rgba(138,62,22,.62)'},{y:285,h:13,c:'rgba(202,138,62,.42)'},
-    ].forEach(b => {
-      x.fillStyle = b.c; x.beginPath(); x.moveTo(0, b.y*h/340);
-      for (let i = 0; i <= w; i+=18) x.lineTo(i, (b.y+Math.sin(i*.018)*4)*h/340);
-      for (let i = w; i >= 0; i-=18) x.lineTo(i, (b.y+b.h+Math.sin(i*.018+1.2)*4)*h/340);
-      x.closePath(); x.fill();
-    });
-    // Great Red Spot
-    x.fillStyle = 'rgba(182,62,32,.78)'; x.beginPath(); x.ellipse(w*.62,h*.375,34,23,0,0,Math.PI*2); x.fill();
-    x.fillStyle = 'rgba(212,88,52,.62)'; x.beginPath(); x.ellipse(w*.62,h*.375,22,14,0,0,Math.PI*2); x.fill();
-    x.fillStyle = 'rgba(238,118,72,.42)'; x.beginPath(); x.ellipse(w*.62,h*.375,11,7,0,0,Math.PI*2); x.fill();
-    const ld = x.createRadialGradient(w/2,h/2,w*.28,w/2,h/2,w*.52);
-    ld.addColorStop(0,'rgba(0,0,0,0)'); ld.addColorStop(.68,'rgba(0,0,0,.06)'); ld.addColorStop(1,'rgba(0,0,0,.5)');
-    x.fillStyle = ld; x.fillRect(0,0,w,h);
-  });
+  const jupTex = planetTex('jupiter.jpg');
   const jR = 5.5;
-  const jup = new THREE.Mesh(new THREE.SphereGeometry(jR,128,128), new THREE.MeshPhongMaterial({ map:jupTex, shininess:12 }));
+  const jup = new THREE.Mesh(new THREE.SphereGeometry(jR,128,128), new THREE.MeshPhongMaterial({ map:jupTex, shininess:12, emissive: new THREE.Color(0xffffff), emissiveMap: jupTex, emissiveIntensity: .35 }));
   jup.position.set(-60,12,-110); scene.add(jup);
 
   // ── SATURN + RINGS ────────────────────────────────────
-  const satTex = tx(1024, 512, (x, w, h) => {
-    const bg = x.createLinearGradient(0,0,0,h);
-    bg.addColorStop(0,'#d4b882'); bg.addColorStop(.5,'#c8a868'); bg.addColorStop(1,'#b89055');
-    x.fillStyle = bg; x.fillRect(0,0,w,h);
-    [18,34,52,72,92,112,132,152,172,192,212,232,252].forEach((y,i) => {
-      x.fillStyle = `rgba(${148+i*4},${92+i*3},${36+i*2},${.28+i*.018})`; x.fillRect(0,y*h/512,w,(6+i*.5)*h/512);
-    });
-    const ld = x.createRadialGradient(w/2,h/2,w*.28,w/2,h/2,w/2);
-    ld.addColorStop(0,'rgba(0,0,0,0)'); ld.addColorStop(.68,'rgba(0,0,0,.06)'); ld.addColorStop(1,'rgba(0,0,0,.48)');
-    x.fillStyle = ld; x.fillRect(0,0,w,h);
-  });
+  const satTex = planetTex('saturn.jpg');
   const sR = 4.2;
-  const sat = new THREE.Mesh(new THREE.SphereGeometry(sR,128,128), new THREE.MeshPhongMaterial({ map:satTex, shininess:14 }));
+  const sat = new THREE.Mesh(new THREE.SphereGeometry(sR,128,128), new THREE.MeshPhongMaterial({ map:satTex, shininess:14, emissive: new THREE.Color(0xffffff), emissiveMap: satTex, emissiveIntensity: .35 }));
   sat.position.set(65,28,-145); scene.add(sat);
 
-  // Ring texture with Cassini division
-  const ringTex = tx(2048, 64, (x, w, h) => {
-    const g = x.createLinearGradient(0,0,w,0);
-    [
-      [0,'rgba(0,0,0,0)'],[.03,'rgba(175,150,108,.12)'],[.08,'rgba(198,170,125,.38)'],[.15,'rgba(215,185,138,.62)'],
-      [.22,'rgba(200,170,125,.52)'],[.3,'rgba(178,150,110,.3)'],[.37,'rgba(162,138,100,.12)'],[.43,'rgba(158,133,96,.06)'],
-      [.49,'rgba(160,135,98,.1)'],[.55,'rgba(170,145,106,.22)'],[.63,'rgba(195,168,125,.68)'],[.74,'rgba(208,182,136,.84)'],
-      [.83,'rgba(192,165,122,.64)'],[.91,'rgba(175,148,110,.4)'],[.96,'rgba(158,132,98,.2)'],[1,'rgba(0,0,0,0)'],
-    ].forEach(([pos,c]) => g.addColorStop(pos,c));
-    x.fillStyle = g; x.fillRect(0,0,w,h);
-    // Cassini division
-    x.fillStyle = 'rgba(0,0,0,.72)'; x.fillRect(w*.598,0,w*.038,h);
-    // Enke gap
-    x.fillStyle = 'rgba(0,0,0,.38)'; x.fillRect(w*.88,0,w*.018,h);
-  });
+  // Ring texture dari file (saturn_ring.png)
+  const ringTex = planetTex('saturn_ring.png');
   const ringGeo = new THREE.RingGeometry(sR*1.28, sR*2.65, 512);
   const rPos = ringGeo.attributes.position, rUV = ringGeo.attributes.uv;
   for (let i = 0; i < rPos.count; i++) {
@@ -1081,13 +819,29 @@ const LINKS = <?= json_encode($links, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SL
   ringMesh.rotation.x = Math.PI*.4; ringMesh.rotation.z = .15;
   ringMesh.position.copy(sat.position); scene.add(ringMesh);
 
-  // ── DISTANT PLANETS ───────────────────────────────────
-  const ven = new THREE.Mesh(new THREE.SphereGeometry(1.3,48,48), new THREE.MeshPhongMaterial({ color:0xf0d080, emissive:new THREE.Color(.07,.045,0), shininess:45, transparent:true, opacity:.92 }));
-  ven.position.set(-75,32,-115); scene.add(ven);
-  const uranus = new THREE.Mesh(new THREE.SphereGeometry(2.4,48,48), new THREE.MeshPhongMaterial({ color:0x80e8e0, shininess:22, transparent:true, opacity:.88 }));
+  // ── URANUS ────────────────────────────────────────────
+  const uranusTex = planetTex('uranus.jpg');
+  const uranus = new THREE.Mesh(new THREE.SphereGeometry(2.4,64,64), new THREE.MeshPhongMaterial({ map:uranusTex, shininess:22, emissive: new THREE.Color(0xffffff), emissiveMap: uranusTex, emissiveIntensity: .35 }));
   uranus.position.set(90,-8,-185); scene.add(uranus);
-  const neptune = new THREE.Mesh(new THREE.SphereGeometry(2.1,48,48), new THREE.MeshPhongMaterial({ color:0x2038d8, shininess:24, transparent:true, opacity:.78 }));
+
+  // ── NEPTUNE ───────────────────────────────────────────
+  const neptuneTex = planetTex('neptune.jpg');
+  const neptune = new THREE.Mesh(new THREE.SphereGeometry(2.1,64,64), new THREE.MeshPhongMaterial({ map:neptuneTex, shininess:24, emissive: new THREE.Color(0xffffff), emissiveMap: neptuneTex, emissiveIntensity: .35 }));
   neptune.position.set(-120,-20,-240); scene.add(neptune);
+
+  // ── ASTEROID BELT ─────────────────────────────────────
+  {
+    const g = new THREE.BufferGeometry(), p = new Float32Array(1200*3);
+    for (let i = 0; i < 1200; i++) {
+      const t2 = Math.random()*Math.PI*2, r = 52+Math.random()*26;
+      p[i*3]   = r*Math.cos(t2)-44;
+      p[i*3+1] = (Math.random()-.5)*6+12;
+      p[i*3+2] = r*Math.sin(t2)*.38-88;
+    }
+    g.setAttribute('position', new THREE.BufferAttribute(p, 3));
+    scene.add(new THREE.Points(g, new THREE.PointsMaterial({ size:.085, color:0x998877, transparent:true, opacity:.38, depthWrite:false })));
+  }
+
 
   // ── ASTEROID BELT ─────────────────────────────────────
   {
@@ -1159,7 +913,7 @@ const LINKS = <?= json_encode($links, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SL
   // ── ANIMATION LOOP ────────────────────────────────────
   let T = 0;
   const earthBase   = earth.position.clone();
-  const moonOrbit   = { a: 11.5, speed: .006, phase: Math.PI*.3 };
+  const moonOrbit   = { a: 24, speed: .006, phase: Math.PI*.3 };
   // 4D rotation state: two extra angle pairs for W-axis
   const ang4D = { xw: 0, yw: 0, zw: 0 };
 
@@ -1187,21 +941,9 @@ const LINKS = <?= json_encode($links, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SL
     w4dMesh.position.copy(earth.position);
     w4dMesh.rotation.y = earth.rotation.y * .6;
 
-    // Earth spin — cursor-responsive
-    const mouseMag  = Math.sqrt(mouse.vx*mouse.vx + mouse.vy*mouse.vy);
-    const earthSpin = .0014 + mouseMag * 1.8;
-    earth.rotation.y += earthSpin;
-    // 4D tilt bleeds into Earth's visible orientation
-    earth.rotation.x += (mouse.y * .18 + Math.sin(ang4D.yw) * .02 - earth.rotation.x) * .035;
-    earth.rotation.z  = .4 + mouse.x * .08 + Math.sin(ang4D.xw * .7) * .015;
-
-    // Clouds drift independently
-    clouds.rotation.y = earth.rotation.y * .98 + T * .0004;
-    clouds.rotation.x = earth.rotation.x;
-    clouds.rotation.z = earth.rotation.z;
-
-    // Terminator tracks sun direction
-    terminator.position.copy(earth.position);
+    // Earth spin — natural, constant speed (tidak terpengaruh mouse)
+    earth.rotation.y += .0014;
+    earth.rotation.z = .4;
 
     // Moon orbits Earth (4D perturbation adds subtle inclination wobble)
     moonOrbit.phase += moonOrbit.speed;
@@ -1217,6 +959,7 @@ const LINKS = <?= json_encode($links, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SL
     earthFill.intensity = .5 + Math.sin(T * .8 + ang4D.xw) * .12;
 
     // Planet rotations
+    mercury.rotation.y += .0024;
     mars.rotation.y    += .0018;
     jup.rotation.y     += .003;
     sat.rotation.y     += .0022;
@@ -1230,15 +973,12 @@ const LINKS = <?= json_encode($links, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SL
     const sp = 1 + Math.sin(T*.88)*.016 + Math.sin(T*2.28)*.007 + Math.sin(T*5.1)*.003;
     sun.scale.setScalar(sp);
 
-    // Scene parallax — 4D adds subtle extra-dimensional drift
-    const px4 = mouse.x*.014 + Math.sin(ang4D.yw) * .004;
-    const py4 = -mouse.y*.009 + Math.cos(ang4D.xw) * .003;
-    scene.rotation.y += (px4 - scene.rotation.y) * .018;
-    scene.rotation.x += (py4 - scene.rotation.x) * .018;
+    // Kamera bergerak ke kiri/kanan mengikuti mouse (tidak ada gerakan naik/turun)
+    const px4 = mouse.x*.06 + Math.sin(ang4D.yw) * .004;
+    scene.rotation.y += (px4 - scene.rotation.y) * .06;
 
-    // Camera — slow breathing + 4D resonance
+    // Camera — slow breathing + 4D resonance (hanya gerakan depan-belakang, tidak naik/turun)
     camera.position.z = 42 + Math.sin(T*.35)*.5 + Math.sin(T*.11 + ang4D.zw)*.18;
-    camera.position.y = Math.sin(T*.09) * .08;
 
     renderer.render(scene, camera);
   })();
