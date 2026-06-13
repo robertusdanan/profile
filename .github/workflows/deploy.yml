@@ -7,20 +7,16 @@ on:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Generate config.js from template
+      - name: Generate config.js
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON: ${{ secrets.SUPABASE_ANON }}
@@ -30,20 +26,29 @@ jobs:
             -e "s|PLACEHOLDER_SUPABASE_ANON|${SUPABASE_ANON}|g" \
             config.template.js > config.js
 
-          echo "config.js berhasil di-generate"
           if grep -q "PLACEHOLDER" config.js; then
-            echo "ERROR: Masih ada placeholder! Cek GitHub Secrets."
+            echo "ERROR: Secrets belum terisi!"
             exit 1
           fi
-          echo "Semua placeholder berhasil terganti"
+          echo "config.js OK"
 
-      - name: Deploy ke branch gh-pages
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./
-          publish_branch: gh-pages
-          exclude_assets: '.gitignore,.git'
-          force_orphan: true
-          user_name: 'github-actions[bot]'
-          user_email: 'github-actions[bot]@users.noreply.github.com'
+      - name: Deploy ke gh-pages
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Siapkan folder deploy
+          mkdir -p /tmp/deploy
+          cp index.html /tmp/deploy/
+          cp config.js  /tmp/deploy/
+          cp favicon.ico /tmp/deploy/ 2>/dev/null || true
+          cp og.jpg      /tmp/deploy/ 2>/dev/null || true
+
+          # Push ke gh-pages
+          cd /tmp/deploy
+          git init
+          git remote add origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+          git checkout -b gh-pages
+          git add -A
+          git commit -m "deploy: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          git push -f origin gh-pages
