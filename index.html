@@ -456,7 +456,23 @@ html, body { width:100%; height:100%; overflow:hidden; background:var(--void); f
 <body>
 
 <!-- Secrets di-load dari config.js yang di-generate GitHub Actions -->
-<script src="config.js" onerror="console.error('[config] GAGAL memuat config.js — pastikan file ada di gh-pages branch')"></script>
+<script>
+(function() {
+  var s = document.createElement('script');
+  // Coba dari folder yang sama dulu, lalu root sebagai fallback
+  var base = window.location.pathname.replace(/\/[^/]*$/, '/');
+  s.src = base + 'config.js';
+  s.onerror = function() {
+    console.error('[config] Gagal muat config.js dari: ' + s.src);
+    // Fallback: coba root
+    var s2 = document.createElement('script');
+    s2.src = '/config.js';
+    s2.onerror = function() { console.error('[config] Gagal juga dari root /config.js'); };
+    document.head.appendChild(s2);
+  };
+  document.head.appendChild(s);
+})();
+</script>
 
 <canvas id="cosmos"></canvas>
 <div class="noise"></div>

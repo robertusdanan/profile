@@ -22,16 +22,21 @@ jobs:
             -e "s|PLACEHOLDER_SUPABASE_URL|${{ secrets.SUPABASE_URL }}|g" \
             -e "s|PLACEHOLDER_SUPABASE_ANON|${{ secrets.SUPABASE_ANON }}|g" \
             config.template.js > config.js
-          echo "=== Verifikasi config.js (nilai disensor) ==="
-          grep -o 'SUPABASE_URL.*' config.js | head -c 60 || true
-          echo ""
-          echo "=== Cek apakah placeholder masih ada (harusnya kosong) ==="
-          grep "PLACEHOLDER" config.js && echo "GAGAL: placeholder belum terganti!" || echo "OK: semua placeholder sudah terganti"
+
+          echo "=== Cek placeholder (harusnya tidak ada output) ==="
+          grep "PLACEHOLDER" config.js && echo "GAGAL: placeholder belum terganti!" || echo "OK: secrets berhasil di-inject"
+
+          echo "=== Isi config.js ==="
+          cat config.js
+
+      - name: List files before deploy
+        run: |
+          echo "=== File yang akan di-deploy ==="
+          ls -la
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./
-          exclude_assets: '.github'
-          keep_files: false
+          exclude_assets: '.github,config.template.js,README.md'
