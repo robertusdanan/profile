@@ -120,6 +120,19 @@ $og_image       = $og_url . 'og.jpg';
 <meta name="twitter:description" content="<?= $og_description ?>"/>
 <meta name="twitter:image"       content="<?= $og_image ?>"/>
 <meta property="fb:app_id" content="2644601879268512" />
+<?php
+// ── Texture base URL (Supabase Storage, bucket: textures) ─
+$tex_base = rtrim(SUPABASE_URL, '/') . '/storage/v1/object/public/textures/';
+$tex_host = parse_url(SUPABASE_URL, PHP_URL_HOST);
+$textures = ['earth.jpg','sun.jpg','mercury.jpg','venus.jpg','mars.jpg','jupiter.jpg','saturn.jpg','saturn_ring.png','uranus.jpg','neptune.jpg'];
+?>
+<!-- DNS + TLS handshake ke Supabase dimulai seketika -->
+<link rel="preconnect" href="<?= 'https://' . $tex_host ?>"/>
+<link rel="dns-prefetch" href="<?= 'https://' . $tex_host ?>"/>
+<!-- Preload semua texture planet — browser download paralel sebelum JS dieksekusi -->
+<?php foreach ($textures as $f): ?>
+<link rel="preload" as="image" href="<?= $tex_base . $f ?>" crossorigin="anonymous"/>
+<?php endforeach; ?>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet"/>
 <style>
@@ -822,7 +835,8 @@ const LINKS = <?= json_encode($links, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SL
 
   // ── TEXTURE LOADER ────────────────────────────────────
   // Semua tekstur planet dimuat dari Supabase Storage (bucket: textures)
-  const TEX_BASE = '<?= rtrim(SUPABASE_URL, '/') ?>/storage/v1/object/public/textures/';
+  // URL di-inject PHP — sama persis dengan preload hints di <head>
+  const TEX_BASE = '<?= $tex_base ?>';
   const texLoader = new THREE.TextureLoader();
   function planetTex(file, { srgb = true } = {}) {
     const t = texLoader.load(TEX_BASE + file);
