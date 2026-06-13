@@ -1,0 +1,20 @@
+# ════════════════════════════════════════════════════
+#  .gitignore — linktree static site
+# ════════════════════════════════════════════════════
+
+# Config dengan API key nyata (di-generate GitHub Actions)
+config.js
+
+# Environment files lokal
+.env
+.env.local
+.env.*.local
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Node (jika pakai tooling lokal)
+node_modules/

@@ -1,0 +1,41 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:   # bisa trigger manual dari tab Actions
+
+# Izin untuk push ke branch gh-pages
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout kode
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 2. Inject secrets ke config.js dari template
+      #    Nilai asli TIDAK pernah masuk ke repo — hanya ada di runner memory
+      - name: Inject secrets into config.js
+        run: |
+          sed \
+            -e "s|PLACEHOLDER_SUPABASE_URL|${{ secrets.SUPABASE_URL }}|g" \
+            -e "s|PLACEHOLDER_SUPABASE_ANON|${{ secrets.SUPABASE_ANON }}|g" \
+            config.template.js > config.js
+          echo "✅ config.js generated (NOT committed to repo)"
+
+      # 3. Deploy ke GitHub Pages (gh-pages branch)
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./          # deploy seluruh root folder
+          exclude_assets: '.github,config.template.js,README.md'
+          # config.js (berisi secret) hanya ada di artifact deploy,
+          # bukan di branch main — aman dari history git
