@@ -2,7 +2,7 @@
 
 > **Creator · Developer · Dreamer**
 
-Halaman profil/linktree personal dengan latar belakang tata surya 3D interaktif, dibangun menggunakan Three.js murni dan ditenagai data dinamis dari Supabase.
+Halaman profil personal dengan latar belakang tata surya 3D interaktif, dibangun menggunakan Three.js murni dan ditenagai data dinamis dari Supabase.
 
 🔗 **Live:** [robertusdanan.github.io](https://robertusdanan.github.io/)
 
