@@ -787,11 +787,6 @@ function initThree() {
     c.width = w; c.height = h;
     return { c, x: c.getContext('2d') };
   }
-  function tx(w, h, fn) {
-    const { c, x } = cv(w, h);
-    fn(x, w, h);
-    return new THREE.CanvasTexture(c);
-  }
 
   // ── STAR FIELD ────────────────────────────────────────
   function mkStars(n, spread, sz, op, col, zOff) {
@@ -870,26 +865,17 @@ function initThree() {
   });
 
   // ── MOON ──────────────────────────────────────────────
-  const moonTex = tx(1024,512,(x,w,h)=>{
-    const bg = x.createRadialGradient(w/2,h/2,0,w/2,h/2,w/2);
-    bg.addColorStop(0,'#c0bbb0'); bg.addColorStop(.7,'#9a958c'); bg.addColorStop(1,'#726e68');
-    x.fillStyle=bg; x.fillRect(0,0,w,h);
-    [{cx:.35,cy:.4,r:75,op:.55},{cx:.62,cy:.32,r:52,op:.48},{cx:.68,cy:.58,r:40,op:.44},{cx:.22,cy:.62,r:38,op:.5},{cx:.5,cy:.55,r:30,op:.4}].forEach(m=>{
-      x.fillStyle=`rgba(70,65,60,${m.op})`; x.beginPath(); x.arc(m.cx*w,m.cy*h,m.r,0,Math.PI*2); x.fill();
-    });
-    for(let i=0;i<120;i++){
-      const cx=Math.random()*w,cy=Math.random()*h,r=2+Math.random()*22;
-      x.strokeStyle=`rgba(55,52,48,${.35+Math.random()*.45})`; x.lineWidth=1;
-      x.beginPath(); x.arc(cx,cy,r,0,Math.PI*2); x.stroke();
-      x.fillStyle=`rgba(45,42,38,${.1+Math.random()*.18})`; x.fill();
-    }
-    const ld=x.createRadialGradient(w/2,h/2,w*.22,w/2,h/2,w/2);
-    ld.addColorStop(0,'rgba(0,0,0,0)'); ld.addColorStop(.65,'rgba(0,0,0,.08)'); ld.addColorStop(1,'rgba(0,0,0,.52)');
-    x.fillStyle=ld; x.fillRect(0,0,w,h);
-  });
+  const moonTex = planetTex('moon.jpg');
   const moon = new THREE.Mesh(
     new THREE.SphereGeometry(2,64,64),
-    new THREE.MeshPhongMaterial({map:moonTex,shininess:2,specular:new THREE.Color(.04,.04,.04),emissive:new THREE.Color(0xffffff),emissiveMap:moonTex,emissiveIntensity:.35})
+    new THREE.MeshPhongMaterial({
+      map: moonTex,
+      shininess: 2,
+      specular: new THREE.Color(.04,.04,.04),
+      emissive: new THREE.Color(0x111008),
+      emissiveMap: moonTex,
+      emissiveIntensity: .08,
+    })
   );
   scene.add(moon);
 
@@ -911,21 +897,26 @@ function initThree() {
   earthFill.position.copy(earth.position); scene.add(earthFill);
 
   // ── PLANETS ───────────────────────────────────────────
-  const mercury = new THREE.Mesh(new THREE.SphereGeometry(1.6,64,64), new THREE.MeshPhongMaterial({map:planetTex('mercury.jpg'),shininess:4,emissive:new THREE.Color(0xffffff),emissiveMap:planetTex('mercury.jpg'),emissiveIntensity:.35}));
+  const mercuryTex = planetTex('mercury.jpg');
+  const mercury = new THREE.Mesh(new THREE.SphereGeometry(1.6,64,64), new THREE.MeshPhongMaterial({map:mercuryTex,shininess:3,specular:new THREE.Color(.04,.03,.02),emissive:new THREE.Color(0x120e08),emissiveMap:mercuryTex,emissiveIntensity:.06}));
   mercury.position.set(40,30,-78); scene.add(mercury);
 
-  const ven = new THREE.Mesh(new THREE.SphereGeometry(2.6,64,64), new THREE.MeshPhongMaterial({map:planetTex('venus.jpg'),shininess:18,emissive:new THREE.Color(0xffffff),emissiveMap:planetTex('venus.jpg'),emissiveIntensity:.35}));
+  const venusTex = planetTex('venus.jpg');
+  const ven = new THREE.Mesh(new THREE.SphereGeometry(2.6,64,64), new THREE.MeshPhongMaterial({map:venusTex,shininess:38,specular:new THREE.Color(.18,.14,.06),emissive:new THREE.Color(0x1a1005),emissiveMap:venusTex,emissiveIntensity:.12}));
   ven.position.set(-75,32,-115); scene.add(ven);
 
-  const mars = new THREE.Mesh(new THREE.SphereGeometry(2.3,64,64), new THREE.MeshPhongMaterial({map:planetTex('mars.jpg'),shininess:5,emissive:new THREE.Color(0xffffff),emissiveMap:planetTex('mars.jpg'),emissiveIntensity:.35}));
+  const marsTex = planetTex('mars.jpg');
+  const mars = new THREE.Mesh(new THREE.SphereGeometry(2.3,64,64), new THREE.MeshPhongMaterial({map:marsTex,shininess:4,specular:new THREE.Color(.06,.02,.01),emissive:new THREE.Color(0x100402),emissiveMap:marsTex,emissiveIntensity:.07}));
   mars.position.set(-32,18,-65); scene.add(mars);
 
   const jR = 5.5;
-  const jup = new THREE.Mesh(new THREE.SphereGeometry(jR,128,128), new THREE.MeshPhongMaterial({map:planetTex('jupiter.jpg'),shininess:12,emissive:new THREE.Color(0xffffff),emissiveMap:planetTex('jupiter.jpg'),emissiveIntensity:.35}));
+  const jupTex = planetTex('jupiter.jpg');
+  const jup = new THREE.Mesh(new THREE.SphereGeometry(jR,128,128), new THREE.MeshPhongMaterial({map:jupTex,shininess:16,specular:new THREE.Color(.1,.08,.04),emissive:new THREE.Color(0x100a04),emissiveMap:jupTex,emissiveIntensity:.09}));
   jup.position.set(-60,12,-110); scene.add(jup);
 
   const sR = 4.2;
-  const sat = new THREE.Mesh(new THREE.SphereGeometry(sR,128,128), new THREE.MeshPhongMaterial({map:planetTex('saturn.jpg'),shininess:14,emissive:new THREE.Color(0xffffff),emissiveMap:planetTex('saturn.jpg'),emissiveIntensity:.35}));
+  const satTex = planetTex('saturn.jpg');
+  const sat = new THREE.Mesh(new THREE.SphereGeometry(sR,128,128), new THREE.MeshPhongMaterial({map:satTex,shininess:18,specular:new THREE.Color(.12,.1,.05),emissive:new THREE.Color(0x0e0a04),emissiveMap:satTex,emissiveIntensity:.08}));
   sat.position.set(65,28,-145); scene.add(sat);
 
   const ringTex = planetTex('saturn_ring.png');
@@ -939,10 +930,12 @@ function initThree() {
   ringMesh.rotation.x=Math.PI*.4; ringMesh.rotation.z=.15;
   ringMesh.position.copy(sat.position); scene.add(ringMesh);
 
-  const uranus = new THREE.Mesh(new THREE.SphereGeometry(2.4,64,64), new THREE.MeshPhongMaterial({map:planetTex('uranus.jpg'),shininess:22,emissive:new THREE.Color(0xffffff),emissiveMap:planetTex('uranus.jpg'),emissiveIntensity:.35}));
+  const uranusTex = planetTex('uranus.jpg');
+  const uranus = new THREE.Mesh(new THREE.SphereGeometry(2.4,64,64), new THREE.MeshPhongMaterial({map:uranusTex,shininess:42,specular:new THREE.Color(.08,.18,.22),emissive:new THREE.Color(0x030c10),emissiveMap:uranusTex,emissiveIntensity:.1}));
   uranus.position.set(90,-8,-185); scene.add(uranus);
 
-  const neptune = new THREE.Mesh(new THREE.SphereGeometry(2.1,64,64), new THREE.MeshPhongMaterial({map:planetTex('neptune.jpg'),shininess:24,emissive:new THREE.Color(0xffffff),emissiveMap:planetTex('neptune.jpg'),emissiveIntensity:.35}));
+  const neptuneTex = planetTex('neptune.jpg');
+  const neptune = new THREE.Mesh(new THREE.SphereGeometry(2.1,64,64), new THREE.MeshPhongMaterial({map:neptuneTex,shininess:48,specular:new THREE.Color(.06,.1,.28),emissive:new THREE.Color(0x02050e),emissiveMap:neptuneTex,emissiveIntensity:.1}));
   neptune.position.set(-120,-20,-240); scene.add(neptune);
 
   // ── ASTEROID BELT ─────────────────────────────────────
