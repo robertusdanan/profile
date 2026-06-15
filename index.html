@@ -881,19 +881,72 @@ function initThree() {
 
   // ── SUN ───────────────────────────────────────────────
   const sunTex = planetTex('sun.jpg');
-  const sunR = 18;
-  const sun = new THREE.Mesh(new THREE.SphereGeometry(sunR,128,128), new THREE.MeshBasicMaterial({map:sunTex}));
+  const sunR = 32;
+  const sun = new THREE.Mesh(
+    new THREE.SphereGeometry(sunR,128,128),
+    new THREE.MeshBasicMaterial({map:sunTex})
+  );
   sun.position.set(-120,55,-200); scene.add(sun);
 
+  // Sun surface shimmer (additive layer on top of texture)
+  const sunGlowMat = new THREE.ShaderMaterial({
+    transparent:true, depthWrite:false, blending:THREE.AdditiveBlending, side:THREE.FrontSide,
+    uniforms:{time:{value:0}},
+    vertexShader:`
+      varying vec3 vNorm;
+      void main(){ vNorm=normalize(normalMatrix*normal); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+    fragmentShader:`
+      uniform float time;
+      varying vec3 vNorm;
+      void main(){
+        float rim=1.0-abs(dot(vNorm,vec3(0.0,0.0,1.0)));
+        float pulse=sin(time*1.4)*.04+sin(time*2.9)*.02;
+        float core=pow(max(0.0,1.0-rim),1.8)*.18;
+        float edge=pow(rim,2.2)*(0.55+pulse);
+        vec3 col=mix(vec3(1.0,.82,.22),vec3(1.0,.55,.05),rim);
+        gl_FragColor=vec4(col,(core+edge)*.9);
+      }`,
+  });
+  const sunGlowMesh = new THREE.Mesh(new THREE.SphereGeometry(sunR*1.001,64,64), sunGlowMat);
+  sunGlowMesh.position.copy(sun.position); scene.add(sunGlowMesh);
+
+  // Corona glow layers — additive blending spheres expanding outward
+  const coronaLayers = [
+    {r:sunR*1.06, op:.38, c:new THREE.Color(1.0,.78,.18)},
+    {r:sunR*1.14, op:.20, c:new THREE.Color(1.0,.62,.1)},
+    {r:sunR*1.26, op:.10, c:new THREE.Color(1.0,.45,.06)},
+    {r:sunR*1.46, op:.055,c:new THREE.Color(1.0,.35,.04)},
+    {r:sunR*1.76, op:.025,c:new THREE.Color(.9,.22,.02)},
+    {r:sunR*2.2,  op:.012,c:new THREE.Color(.7,.15,.01)},
+    {r:sunR*3.0,  op:.005,c:new THREE.Color(.5,.1,.01)},
+  ];
+  const coronaMeshes = coronaLayers.map(({r,op,c})=>{
+    const m = new THREE.Mesh(
+      new THREE.SphereGeometry(r,64,64),
+      new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:op,side:THREE.BackSide,depthWrite:false,blending:THREE.AdditiveBlending})
+    );
+    m.position.copy(sun.position); scene.add(m); return m;
+  });
+
   // ── LIGHTING ──────────────────────────────────────────
-  const sunLight = new THREE.DirectionalLight(0xfff6e0, 2.4);
+  // Strong directional light from sun — warm sunlight color
+  const sunLight = new THREE.DirectionalLight(0xfff4d0, 4.2);
   sunLight.position.copy(sun.position); sunLight.castShadow = true;
   sunLight.shadow.mapSize.width = 2048; sunLight.shadow.mapSize.height = 2048;
   scene.add(sunLight);
-  scene.add(new THREE.AmbientLight(0x1a2030,.7));
-  const fill = new THREE.DirectionalLight(0x1835a0,.28);
+
+  // Point light at sun position so nearby planets (Mercury, Venus) get hot
+  const sunPoint = new THREE.PointLight(0xffe0a0, 8.0, 320);
+  sunPoint.position.copy(sun.position); scene.add(sunPoint);
+
+  // Very faint deep-space ambient — keeps far-side of planets barely visible
+  scene.add(new THREE.AmbientLight(0x0a0e1a, 0.28));
+
+  // Subtle blue rim from galaxy scatter
+  const fill = new THREE.DirectionalLight(0x1020a0, 0.12);
   fill.position.set(50,-20,30); scene.add(fill);
-  const earthFill = new THREE.PointLight(0x2244aa,.6,60);
+
+  const earthFill = new THREE.PointLight(0x2244aa,.4,60);
   earthFill.position.copy(earth.position); scene.add(earthFill);
 
   // ── PLANETS ───────────────────────────────────────────
@@ -1010,8 +1063,13 @@ function initThree() {
     mercury.rotation.y+=.0024;mars.rotation.y+=.0018;jup.rotation.y+=.003;
     sat.rotation.y+=.0022;ringMesh.rotation.z+=.00018;ven.rotation.y+=.0008;
     uranus.rotation.y+=.0014;neptune.rotation.y+=.001;sun.rotation.y+=.0003;
+    sunGlowMat.uniforms.time.value=T;
+    sunGlowMesh.position.copy(sun.position);
+    coronaMeshes.forEach(m=>m.position.copy(sun.position));
     const sp=1+Math.sin(T*.88)*.016+Math.sin(T*2.28)*.007+Math.sin(T*5.1)*.003;
     sun.scale.setScalar(sp);
+    sunGlowMesh.scale.setScalar(sp);
+    coronaMeshes.forEach(m=>m.scale.setScalar(sp));
     const px4=mouse.x*.06+Math.sin(ang4D.yw)*.004;
     scene.rotation.y+=(px4-scene.rotation.y)*.06;
     const baseCamZ=isMobile()?34:42;
@@ -1046,6 +1104,9 @@ function initThree() {
       }
     });
     sunLight.position.copy(sun.position);
+    sunPoint.position.copy(sun.position);
+    sunGlowMesh.position.copy(sun.position);
+    coronaMeshes.forEach(m=>m.position.copy(sun.position));
     camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();
     renderer.setSize(innerWidth,innerHeight);
   }
