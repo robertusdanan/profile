@@ -1053,10 +1053,86 @@ function initThree() {
   const w4dMesh = new THREE.Mesh(w4dGeo,w4dMat);
   w4dMesh.position.copy(earth.position); scene.add(w4dMesh);
 
-  // ── MOUSE TRACKING ────────────────────────────────────
+  // ── INPUT TRACKING (mouse / gyroscope) ───────────────
   const mouse={x:0,y:0,tx:0,ty:0,vx:0,vy:0};
-  document.addEventListener('mousemove',e=>{mouse.tx=(e.clientX/innerWidth-.5)*2;mouse.ty=(e.clientY/innerHeight-.5)*2;});
-  document.addEventListener('touchmove',e=>{const t=e.touches[0];mouse.tx=(t.clientX/innerWidth-.5)*2;mouse.ty=(t.clientY/innerHeight-.5)*2;},{passive:true});
+
+  // Desktop: mouse move
+  document.addEventListener('mousemove',e=>{
+    mouse.tx=(e.clientX/innerWidth-.5)*2;
+    mouse.ty=(e.clientY/innerHeight-.5)*2;
+  });
+
+  // ── GYROSCOPE (mobile) ────────────────────────────────
+  // Simpan baseline saat pertama kali gyro aktif
+  let gyroBaseBeta=null, gyroBaseGamma=null;
+  let gyroActive=false;
+
+  function handleOrientation(e){
+    // beta  = tilt maju-mundur  (-180..180), gamma = tilt kiri-kanan (-90..90)
+    const beta  = e.beta  ?? 0;
+    const gamma = e.gamma ?? 0;
+
+    // Kalibrasi: simpan posisi awal pegang HP
+    if(gyroBaseBeta===null){
+      gyroBaseBeta  = beta;
+      gyroBaseGamma = gamma;
+    }
+
+    // Delta dari posisi awal, clamp agar tidak terlalu ekstrem
+    const dx = Math.max(-45, Math.min(45, gamma - gyroBaseGamma)); // kiri-kanan
+    const dy = Math.max(-30, Math.min(30, beta  - gyroBaseBeta )); // atas-bawah
+
+    // Normalise ke -1..1 (sensitifitas bisa diatur di sini)
+    mouse.tx =  dx / 45;
+    mouse.ty =  dy / 30;
+    gyroActive = true;
+  }
+
+  function requestGyro(){
+    if(typeof DeviceOrientationEvent !== 'undefined'){
+      // iOS 13+ perlu permission eksplisit
+      if(typeof DeviceOrientationEvent.requestPermission === 'function'){
+        DeviceOrientationEvent.requestPermission()
+          .then(state=>{
+            if(state==='granted'){
+              window.addEventListener('deviceorientation', handleOrientation, {passive:true});
+            }
+          })
+          .catch(()=>{});
+      } else {
+        // Android & browser lain langsung bisa
+        window.addEventListener('deviceorientation', handleOrientation, {passive:true});
+      }
+    }
+  }
+
+  if(isMobile()){
+    // Coba langsung daftar; kalau iOS13+ akan gagal tanpa gesture, pakai tap sekali
+    if(typeof DeviceOrientationEvent !== 'undefined'){
+      if(typeof DeviceOrientationEvent.requestPermission === 'function'){
+        // iOS 13+: butuh user gesture — pakai tap pertama di layar
+        const askOnce = ()=>{
+          requestGyro();
+          document.removeEventListener('touchstart', askOnce);
+        };
+        document.addEventListener('touchstart', askOnce, {once:true});
+      } else {
+        requestGyro();
+      }
+    }
+  } else {
+    // Desktop: tidak perlu gyro, touchmove untuk tablet/trackpad
+    document.addEventListener('touchmove',e=>{
+      const t=e.touches[0];
+      mouse.tx=(t.clientX/innerWidth-.5)*2;
+      mouse.ty=(t.clientY/innerHeight-.5)*2;
+    },{passive:true});
+  }
+
+  // Reset kalibrasi saat HP diputar orientasi
+  window.addEventListener('orientationchange',()=>{
+    gyroBaseBeta=null; gyroBaseGamma=null;
+  });
 
   // ── ANIMATION LOOP ────────────────────────────────────
   let T=0;
@@ -1092,6 +1168,8 @@ function initThree() {
     sun.scale.setScalar(sp);
     const px4=mouse.x*.06+Math.sin(ang4D.yw)*.004;
     scene.rotation.y+=(px4-scene.rotation.y)*.06;
+    // Tilt vertikal dari gyro juga gerakkan scene sedikit
+    scene.rotation.x+=(mouse.y*0.025 - scene.rotation.x)*.04;
     const baseCamZ=isMobile()?34:42;
     camera.position.z=baseCamZ+Math.sin(T*.35)*.5+Math.sin(T*.11+ang4D.zw)*.18;
     renderer.render(scene,camera);
