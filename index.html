@@ -376,166 +376,161 @@ html, body { width:100%; height:100%; overflow:hidden; background:var(--void); f
   stroke-width: 2; stroke-linecap: round;
 }
 
-/* ── MOBILE AMBIENT GLOW ── */
+/* ── MOBILE ── */
 @media (max-width: 600px) {
-  .card::after {
-    content: '';
-    position: absolute; inset: -1px; border-radius: 24px;
-    background: linear-gradient(135deg,rgba(79,128,255,0.08) 0%,transparent 40%,rgba(155,114,248,0.06) 100%);
-    pointer-events: none; z-index: 0;
-  }
-  .card > * { position: relative; z-index: 1; }
+  .card::after { display: none; }
 }
 
 @media (max-width: 600px) {
+
   html, body {
-    overflow: auto; overflow-x: hidden;
-    height: auto; min-height: 100%;
-    /* Prevent double-tap zoom */
+    overflow: hidden;
+    height: 100%; width: 100%;
     touch-action: manipulation;
   }
+
   #cosmos { position: fixed; inset: 0; z-index: 0; }
 
+  /* Stage: fixed full screen, card muncul dari bawah */
   .stage {
-    position: relative; z-index: 10;
-    min-height: 100dvh;
-    min-height: -webkit-fill-available;
-    display: flex; align-items: center; justify-content: center;
-    padding: 20px 16px;
-    padding-top: max(60px, env(safe-area-inset-top, 20px) + 48px);
-    padding-bottom: max(28px, env(safe-area-inset-bottom, 16px) + 16px);
+    position: fixed; inset: 0; z-index: 10;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0;
+    overflow: hidden;
   }
 
+  /* ── CARD: bottom sheet tipis & transparan ── */
   .card {
     width: 100%;
-    max-width: 360px;
-    margin: auto;
-    padding: 36px 24px 32px;
-    border-radius: 24px;
-    border: 1px solid rgba(79,128,255,0.2);
-    background: rgba(7, 11, 22, 0.88);
-    backdrop-filter: blur(60px) saturate(1.8);
-    -webkit-backdrop-filter: blur(60px) saturate(1.8);
+    max-width: 100%;
+    margin: 0;
+    padding: 24px 20px 28px;
+    padding-bottom: max(24px, env(safe-area-inset-bottom, 0px) + 16px);
+    border-radius: 26px 26px 0 0;
+    border: 1px solid rgba(79,128,255,0.15);
+    border-bottom: none;
+    /* Transparan — tata surya terlihat di atas */
+    background: rgba(4, 7, 16, 0.52);
+    backdrop-filter: blur(24px) saturate(1.5);
+    -webkit-backdrop-filter: blur(24px) saturate(1.5);
     box-shadow:
-      0 0 0 1px rgba(79,128,255,0.08) inset,
-      0 32px 80px rgba(0,0,0,0.92),
-      0 0 60px rgba(79,128,255,0.07),
-      inset 0 1px 0 rgba(255,255,255,0.06);
+      0 -1px 0 rgba(79,128,255,0.2),
+      0 -60px 100px rgba(3,4,10,0.38),
+      inset 0 1px 0 rgba(255,255,255,0.05);
     text-align: center;
+    animation: card-slide-up 0.65s cubic-bezier(0.16,1,0.3,1) both;
   }
 
-  /* ── Avatar ── */
-  .avatar-wrap {
-    margin-bottom: 20px;
+  @keyframes card-slide-up {
+    from { transform: translateY(100%); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
   }
+
+  /* Sembunyikan dekorasi tidak perlu */
+  .card::before { display: none; }
+  .card-inner-glow { display: none; }
+
+  /* ── Avatar compact ── */
+  .avatar-wrap { margin-bottom: 10px; }
   .avatar {
-    width: 90px; height: 90px;
-    border: 2px solid rgba(79,128,255,0.3);
+    width: 68px; height: 68px;
+    border: 1.5px solid rgba(79,128,255,0.32);
     box-shadow:
-      0 0 0 4px rgba(79,128,255,0.08),
-      0 0 40px rgba(79,128,255,0.2),
-      inset 0 1px 0 rgba(255,255,255,0.08);
+      0 0 0 3px rgba(79,128,255,0.06),
+      0 0 24px rgba(79,128,255,0.2);
   }
   .avatar img {
     width: 100%; height: 100%;
-    object-fit: cover; border-radius: 50%;
-    display: block;
+    object-fit: cover; border-radius: 50%; display: block;
   }
-  .avatar-initials { font-size: 24px; letter-spacing: 3px; }
-  .orbit-ring { inset: -11px; }
-  .orbit-dot { width: 6px; height: 6px; top: -3px; }
+  .avatar-initials { font-size: 18px; letter-spacing: 2px; }
+  .orbit-ring { inset: -8px; }
+  .orbit-dot { width: 5px; height: 5px; top: -2.5px; }
 
-  /* ── Identity ── */
+  /* ── Nama & tagline ringkas ── */
   .name {
-    font-size: clamp(1.55rem, 7.5vw, 2rem);
+    font-size: clamp(1.25rem, 6vw, 1.55rem);
     letter-spacing: -0.02em;
     line-height: 1.1;
-    margin-bottom: 0;
   }
   .handle {
-    font-size: 0.6rem;
-    letter-spacing: 0.22em;
-    margin-top: 8px;
-    color: rgba(79,128,255,0.85);
+    font-size: 0.56rem; letter-spacing: 0.2em;
+    margin-top: 5px; color: rgba(79,128,255,0.78);
   }
   .tagline {
-    font-size: 0.76rem;
-    margin-top: 6px;
-    color: rgba(96,112,144,0.9);
-    letter-spacing: 0.09em;
+    font-size: 0.7rem; margin-top: 4px;
+    color: rgba(96,112,144,0.82); letter-spacing: 0.08em;
   }
 
-  /* ── Divider ── */
-  .divider { margin: 22px 0 18px; }
+  /* ── Divider tipis ── */
+  .divider { margin: 14px 0 11px; }
 
-  /* ── Link Buttons ── */
-  .links { gap: 10px; }
+  /* ── Link buttons compact ── */
+  .links { gap: 7px; }
   .link-btn {
-    padding: 14px 16px;
-    gap: 13px;
-    border-radius: 16px;
-    border: 1px solid rgba(79,128,255,0.13);
-    background: rgba(255,255,255,0.03);
-    /* Remove desktop hover translate on mobile */
-    transition: border-color .22s, background .22s, box-shadow .22s;
+    padding: 10px 13px;
+    gap: 11px;
+    border-radius: 13px;
+    border: 1px solid rgba(79,128,255,0.09);
+    background: rgba(255,255,255,0.022);
+    transition: border-color .2s, background .2s;
   }
-  .link-btn:hover,
+  .link-btn::before { display: none; }
   .link-btn:active {
-    transform: none;
-    border-color: rgba(79,128,255,0.32);
-    background: rgba(79,128,255,0.07);
-    box-shadow: 0 4px 20px rgba(79,128,255,0.12), inset -3px 0 0 var(--accent);
+    transform: scale(0.985);
+    border-color: rgba(79,128,255,0.28);
+    background: rgba(79,128,255,0.06);
+    box-shadow: inset -2px 0 0 var(--accent);
   }
   .ico {
-    width: 42px; height: 42px;
-    border-radius: 13px;
-    border: 1px solid rgba(79,128,255,0.16);
-    background: rgba(79,128,255,0.07);
+    width: 34px; height: 34px;
+    border-radius: 9px;
+    border: 1px solid rgba(79,128,255,0.11);
+    background: rgba(79,128,255,0.055);
     flex-shrink: 0;
   }
-  .btn-title { font-size: 0.76rem; letter-spacing: 0.07em; }
-  .btn-sub { font-size: 0.66rem; margin-top: 3px; color: rgba(96,112,144,0.85); }
-  .arrow { font-size: 13px; opacity: 0.45; }
+  .ico img { width: 20px; height: 20px; }
+  .btn-title { font-size: 0.7rem; letter-spacing: 0.06em; }
+  .btn-sub   { font-size: 0.6rem; margin-top: 2px; color: rgba(96,112,144,0.75); }
+  .arrow     { font-size: 11px; opacity: 0.3; }
+
+  /* Sembunyikan scan line */
+  .scan { display: none; }
 
   /* ── Close button ── */
   .close-btn {
-    top: max(14px, env(safe-area-inset-top, 0px));
-    right: 14px;
-    width: 36px; height: 36px;
-    background: rgba(7, 11, 22, 0.8);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    top: max(12px, env(safe-area-inset-top, 0px));
+    right: 13px;
+    width: 32px; height: 32px;
+    background: rgba(4, 7, 16, 0.62);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-color: rgba(79,128,255,0.14);
   }
 
-  /* ── Footer ── */
-  .footer {
-    position: relative;
-    bottom: auto;
-    margin-top: 20px;
-    padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
-    font-size: 0.52rem;
-    letter-spacing: 0.28em;
-    color: rgba(79,128,255,0.2);
-  }
+  /* Footer tersembunyi */
+  .footer { display: none; }
 
   /* ── Modal ── */
   .modal {
-    padding: 38px 22px 30px;
+    padding: 34px 20px 26px;
     width: 100%; max-width: 360px;
     margin: 0 auto;
-    border-radius: 22px;
-    border: 1px solid rgba(79,128,255,0.16);
+    border-radius: 20px;
+    border: 1px solid rgba(79,128,255,0.15);
   }
-  .modal-actions { flex-direction: column; gap: 9px; }
+  .modal-actions { flex-direction: column; gap: 8px; }
   .btn-cancel, .btn-go {
-    padding: 14px;
-    border-radius: 12px;
-    font-size: 0.64rem;
-    letter-spacing: 0.16em;
+    padding: 12px;
+    border-radius: 10px;
+    font-size: 0.62rem;
+    letter-spacing: 0.14em;
   }
   .btn-cancel { background: rgba(255,255,255,0.03); }
-  .modal-title { font-size: 1.35rem; }
-  .modal-domain { font-size: 0.59rem; letter-spacing: 0.15em; }
+  .modal-title  { font-size: 1.28rem; }
+  .modal-domain { font-size: 0.57rem; letter-spacing: 0.13em; }
 }
 #handleEl{
     visibility: hidden;
