@@ -20,8 +20,19 @@ jobs:
         env:
           SUPABASE_URL:          ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON:         ${{ secrets.SUPABASE_ANON }}
-          SUPABASE_SERVICE_ROLE: ${{ secrets.SUPABASE_SERVICE_ROLE }}
+          SUPABASE_SERVICE_ROLE: ${{ secrets.SERVICE_ROLE }}
         run: |
+          # Gagalkan build lebih awal kalau ada secret yang kosong/belum di-set,
+          # supaya tidak diam-diam ke-deploy dengan config.js yang rusak.
+          missing=""
+          [ -z "$SUPABASE_URL" ]          && missing="$missing SUPABASE_URL"
+          [ -z "$SUPABASE_ANON" ]         && missing="$missing SUPABASE_ANON"
+          [ -z "$SUPABASE_SERVICE_ROLE" ] && missing="$missing SUPABASE_SERVICE_ROLE"
+          if [ -n "$missing" ]; then
+            echo "ERROR: Secret berikut kosong/belum di-set di Settings > Secrets and variables > Actions:$missing"
+            exit 1
+          fi
+
           sed \
             -e "s|PLACEHOLDER_SUPABASE_URL|${SUPABASE_URL}|g" \
             -e "s|PLACEHOLDER_SUPABASE_ANON|${SUPABASE_ANON}|g" \
