@@ -28,7 +28,7 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --void:    #03040a;
+  --void:    #000000;
   --deep:    #070b16;
   --surface: #0c1120;
   --glass:   rgba(10,15,28,0.78);
@@ -46,11 +46,11 @@
   --ease-spring: cubic-bezier(0.34,1.56,0.64,1);
 }
 
-html, body { width:100%; height:100%; overflow:hidden; background:var(--void); font-family:var(--ff-body); color:var(--frost); }
-#cosmos { position:fixed; inset:0; z-index:0; display:block; }
+html, body { width:100%; height:100%; overflow:hidden; background:#000; font-family:var(--ff-body); color:var(--frost); }
+#cosmos { position:fixed; inset:0; z-index:0; display:block; background:#000; }
 
 .noise {
-  position:fixed; inset:0; z-index:1; opacity:0.022; pointer-events:none;
+  position:fixed; inset:0; z-index:1; opacity:0.008; pointer-events:none;
   background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   background-repeat:repeat;
 }
@@ -267,7 +267,7 @@ body.dragged .hint { opacity:0 !important; animation:none; }
 /* ── MODAL ── */
 .overlay {
   position:fixed; inset:0; z-index:200;
-  background:rgba(3,4,10,0.9); backdrop-filter:blur(30px);
+  background:rgba(0,0,0,0.9); backdrop-filter:blur(30px);
   display:flex; align-items:center; justify-content:center; padding:20px;
   opacity:0; pointer-events:none;
   transition:opacity .35s ease;
@@ -754,6 +754,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal()
 // THREE.JS — Solar System Background
 // Heliosentris: Matahari di pusat, planet mengorbit sesuai urutan asli.
 // Kamera mengorbit Matahari 360° secara horizontal saja (tanpa naik/turun).
+// Kontrol: geser layar / roda horizontal / tombol panah / GYROSCOPE (otomatis di HP).
 // ═══════════════════════════════════════════════════════
 function initThree() {
   const TEX_BASE = SUPABASE_URL
@@ -777,7 +778,7 @@ function initThree() {
   const canvas   = document.getElementById('cosmos');
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-  renderer.setClearColor(0x000105, 1);
+  renderer.setClearColor(0x000000, 1);                 // hitam total
   renderer.setSize(innerWidth, innerHeight);
 
   const scene  = new THREE.Scene();
@@ -812,10 +813,13 @@ function initThree() {
   const CAM_RADIUS    = 196;                  // jarak mendatar dari Matahari (tetap) — di antara orbit Saturnus & Uranus
   const CAM_HEIGHT    = 20;                   // tinggi di atas bidang orbit — TETAP (tidak bisa naik/turun)
   // Kemiringan seluruh bidang orbit terhadap kamera. 0 = sudut lurus (sejajar bidang orbit).
-  // Isi mis. deg(23.4) kalau ingin bidang orbit dimiringkan (kamera perlu dinaikkan agar tidak menabrak orbit).
   const SYSTEM_TILT   = deg(0);
   const AUTO_SPEED    = reduceMotion ? 0 : 0.028;  // rad/detik — putaran pelan saat dibiarkan
   const DRAG_GAIN     = 2.6;                  // rad per lebar layar saat digeser
+
+  // Gyroscope
+  const GYRO_DIR      = 1;                    // ganti ke -1 kalau arah putarannya terasa terbalik
+  const GYRO_SMOOTH   = 10;                   // makin besar makin responsif, makin kecil makin halus
 
   // ═════════════════════════════════════════════════════
   // HELPER
@@ -852,12 +856,14 @@ function initThree() {
   const dotTex = glowTex([[0, 'rgba(255,255,255,1)'], [.25, 'rgba(255,255,255,.85)'], [.6, 'rgba(255,255,255,.3)'], [1, 'rgba(255,255,255,0)']]);
 
   // ═════════════════════════════════════════════════════
-  // LATAR: BINTANG & BIMASAKTI (mengelilingi 360°)
+  // LATAR: HITAM TOTAL + BINTANG TERANG + BIMASAKTI UNGU
   // ═════════════════════════════════════════════════════
   const backdrop = new THREE.Group();
   scene.add(backdrop);
 
-  function mkStars(n, rMin, rMax, size, op, color) {
+  const starLayers = [];      // untuk efek berkelip halus
+
+  function mkStars(parent, n, rMin, rMax, size, op, color, twinkle) {
     const g = new THREE.BufferGeometry(), p = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) {
       const u = Math.random() * 2 - 1, th = Math.random() * Math.PI * 2;
@@ -870,17 +876,29 @@ function initThree() {
       transparent: true, opacity: op, alphaTest: .005, depthWrite: false,
     }));
     pts.renderOrder = -9;
-    backdrop.add(pts);
+    parent.add(pts);
+    if (twinkle) starLayers.push({ mat: pts.material, base: op, spd: .6 + Math.random() * 1.4, ph: Math.random() * 6.28 });
+    return pts;
   }
-  mkStars(5200, 1500, 3000, 1.1, .55, 0xdce8ff);
-  mkStars(1800, 1500, 3000, 1.7, .55, 0xc8d7ff);
-  mkStars( 600, 1500, 3000, 2.4, .70, 0xffffff);
-  mkStars( 120, 1500, 3000, 3.4, .85, 0xfff1d0);
-  mkStars(  50, 1500, 3000, 4.4, .90, 0xffe0b8);
-  mkStars(  18, 1500, 3000, 6.0, .90, 0xb4dcff);
 
+  // Bintang tersebar merata — terang di tengah kegelapan
+  mkStars(backdrop, 4200, 1500, 3000, 1.3, .75, 0xdce8ff, false);
+  mkStars(backdrop, 2200, 1500, 3000, 1.9, .85, 0xc8d7ff, true);
+  mkStars(backdrop,  900, 1500, 3000, 2.6, .95, 0xffffff, true);
+  mkStars(backdrop,  260, 1500, 3000, 3.6, 1.0, 0xfff1d0, true);
+  mkStars(backdrop,  110, 1500, 3000, 4.8, 1.0, 0xffe0b8, true);
+  mkStars(backdrop,   40, 1500, 3000, 6.4, 1.0, 0xb4dcff, true);
+  mkStars(backdrop,   14, 1500, 3000, 8.5, 1.0, 0xffffff, true);
+
+  // Bimasakti: pita cahaya ungu-biru redup + bintang rapat sepanjang pita.
+  // Seluruh pita berada di satu grup yang dimiringkan, jadi bintang & kabutnya selaras.
   {
+    const galaxy = new THREE.Group();
+    galaxy.rotation.set(.3, 0, .45);
+    backdrop.add(galaxy);
+
     const W = 2048, H = 1024, { c, x } = cv(W, H);
+    x.fillStyle = '#000'; x.fillRect(0, 0, W, H);
     const blob = (px, py, r, col) => {
       [-W, 0, W].forEach(o => {            // wrap horizontal supaya tidak ada sambungan
         const g = x.createRadialGradient(px + o, py, 0, px + o, py, r);
@@ -888,20 +906,63 @@ function initThree() {
         x.fillStyle = g; x.fillRect(px + o - r, py - r, r * 2, r * 2);
       });
     };
-    for (let i = 0; i < 420; i++) {
-      const py = H / 2 + (Math.random() + Math.random() + Math.random() - 1.5) * 150;
-      const col = `rgba(${90 + Math.random()*50|0},${110 + Math.random()*50|0},${190 + Math.random()*50|0},${.018 + Math.random()*.03})`;
-      blob(Math.random() * W, py, 40 + Math.random() * 130, col);
+    const rnd = (a, b) => a + Math.random() * (b - a);
+
+    // kabut ungu / biru yang menyebar di sepanjang pita
+    for (let i = 0; i < 520; i++) {
+      const py = H / 2 + (Math.random() + Math.random() + Math.random() - 1.5) * 120;
+      const purple = Math.random() < .55;
+      const col = purple
+        ? `rgba(${rnd(120,170)|0},${rnd(60,100)|0},${rnd(190,250)|0},${rnd(.025,.06)})`
+        : `rgba(${rnd(60,100)|0},${rnd(90,130)|0},${rnd(190,250)|0},${rnd(.02,.05)})`;
+      blob(Math.random() * W, py, rnd(40, 150), col);
     }
-    blob(W * .32, H / 2,      320, 'rgba(120,140,230,.12)');
-    blob(W * .78, H / 2 - 30, 260, 'rgba(130,70,190,.08)');
+    // inti galaksi lebih terang & hangat
+    blob(W * .32, H / 2,      340, 'rgba(150,100,230,.17)');
+    blob(W * .32, H / 2,      150, 'rgba(255,190,150,.10)');
+    blob(W * .78, H / 2 - 30, 280, 'rgba(120,70,210,.12)');
+    blob(W * .55, H / 2 + 10, 260, 'rgba(90,110,230,.08)');
+    // jalur debu gelap (menutup sebagian cahaya, seperti aslinya)
+    x.globalCompositeOperation = 'multiply';
+    for (let i = 0; i < 70; i++) {
+      const py = H / 2 + (Math.random() - .5) * 70;
+      const g = x.createRadialGradient(0, 0, 0, 0, 0, 1);
+      const px = Math.random() * W, r = rnd(25, 80);
+      const gg = x.createRadialGradient(px, py, 0, px, py, r);
+      gg.addColorStop(0, 'rgba(0,0,0,.55)'); gg.addColorStop(1, 'rgba(255,255,255,1)');
+      x.fillStyle = gg; x.fillRect(px - r, py - r, r * 2, r * 2);
+    }
+    x.globalCompositeOperation = 'source-over';
+
     const sky = new THREE.Mesh(
       new THREE.SphereGeometry(3200, 48, 32),
       new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), side: THREE.BackSide, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })
     );
-    sky.rotation.set(.3, 0, .45);
     sky.renderOrder = -10;
-    backdrop.add(sky);
+    galaxy.add(sky);
+
+    // bintang rapat sepanjang pita (distribusi lintang sempit)
+    const bandStars = (n, size, op, color) => {
+      const g = new THREE.BufferGeometry(), p = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) {
+        const lon = Math.random() * Math.PI * 2;
+        const lat = (Math.random() + Math.random() + Math.random() - 1.5) * .34;
+        const r = 2200 + Math.random() * 800;
+        p[i*3]   = r * Math.cos(lat) * Math.cos(lon);
+        p[i*3+1] = r * Math.sin(lat);
+        p[i*3+2] = r * Math.cos(lat) * Math.sin(lon);
+      }
+      g.setAttribute('position', new THREE.BufferAttribute(p, 3));
+      const pts = new THREE.Points(g, new THREE.PointsMaterial({
+        size, map: dotTex, color, sizeAttenuation: false,
+        transparent: true, opacity: op, alphaTest: .005, depthWrite: false,
+      }));
+      pts.renderOrder = -9;
+      galaxy.add(pts);
+    };
+    bandStars(5000, 1.1, .7,  0xd5dcff);
+    bandStars(1800, 1.8, .85, 0xe7d9ff);
+    bandStars( 500, 2.6, .95, 0xffffff);
   }
 
   // Grup sistem: semua yang mengikuti bidang orbit (Matahari, planet, orbit, sabuk) ikut miring bersama
@@ -1126,6 +1187,57 @@ function initThree() {
   window.addEventListener('orientationchange', () => setTimeout(layout, 250));
   layout();
 
+  // ═════════════════════════════════════════════════════
+  // GYROSCOPE — otomatis, tanpa tombol
+  // Arahkan / putar HP ke kiri-kanan → kamera mengitari Matahari.
+  //  • Android & browser lain: aktif langsung begitu sensor mengirim data.
+  //  • iOS: Safari mewajibkan izin sensor lewat sentuhan pengguna, jadi izin
+  //    diminta otomatis pada sentuhan pertama di layar (tanpa tombol khusus).
+  //  • Di desktop (tanpa sensor) tetap memakai putaran otomatis + geser mouse.
+  // ═════════════════════════════════════════════════════
+  let gyroActive = false, gyroPrev = null, gyroAcc = 0, gyroBase = 0;
+
+  // Arah belakang HP (sumbu -Z perangkat) → sudut kompas. Tidak terpengaruh orientasi layar.
+  function gyroHeading(e) {
+    const a = deg(e.alpha), b = deg(e.beta), g = deg(e.gamma);
+    const cA = Math.cos(a), sA = Math.sin(a), sB = Math.sin(b), sG = Math.sin(g), cG = Math.cos(g);
+    return Math.atan2(-cA * sG - sA * sB * cG, -sA * sG + cA * sB * cG);
+  }
+  function onOrient(e) {
+    if (e.alpha == null || e.beta == null || e.gamma == null) return;   // desktop: event kosong → abaikan
+    const h = gyroHeading(e);
+    if (!gyroActive) {                                    // sensor nyata terdeteksi → ambil alih kamera
+      gyroActive = true; gyroBase = az; gyroAcc = 0; gyroPrev = null; azVel = 0;
+      document.body.classList.add('dragged');             // sembunyikan petunjuk geser
+    }
+    if (gyroPrev !== null) {
+      let d = h - gyroPrev;
+      d = Math.atan2(Math.sin(d), Math.cos(d));           // hindari lompatan di batas ±180°
+      gyroAcc += d;
+    }
+    gyroPrev = h;
+  }
+
+  function startGyro() {
+    if (!window.DeviceOrientationEvent) return;
+    window.addEventListener('deviceorientation', onOrient, true);
+  }
+  (function setupGyro() {
+    if (!window.DeviceOrientationEvent) return;
+    const DOE = window.DeviceOrientationEvent;
+    if (typeof DOE.requestPermission === 'function') {    // iOS 13+: butuh izin dari sentuhan pengguna
+      const ask = () => {
+        document.removeEventListener('click', ask, true);
+        document.removeEventListener('touchend', ask, true);
+        DOE.requestPermission().then(r => { if (r === 'granted') startGyro(); }).catch(() => {});
+      };
+      document.addEventListener('click', ask, true);
+      document.addEventListener('touchend', ask, true);
+    } else {
+      startGyro();
+    }
+  })();
+
   // ── Input: geser horizontal (mouse/touch), roda horizontal, tombol panah ──
   let dragging = false, dragId = null, lastX = 0, lastT = 0, dragVel = 0;
 
@@ -1141,6 +1253,7 @@ function initThree() {
     const now = performance.now(), dt = Math.max(1, now - lastT) / 1000;
     const dAz = (e.clientX - lastX) / innerWidth * DRAG_GAIN;      // geser kanan → kamera berputar ke kiri (seperti "menggenggam" dunia)
     az += dAz;
+    if (gyroActive) gyroBase += dAz;                               // geser manual tetap bisa dipadukan dengan gyro
     dragVel = dragVel * .6 + (dAz / dt) * .4;
     lastX = e.clientX; lastT = now;
   });
@@ -1148,17 +1261,21 @@ function initThree() {
     if (!dragging || (e && e.pointerId !== dragId)) return;
     dragging = false;
     document.body.classList.remove('dragging');
-    azVel = clamp(dragVel, -5, 5);                                 // inersia halus, lalu kembali ke putaran pelan
+    azVel = gyroActive ? 0 : clamp(dragVel, -5, 5);                // inersia halus, lalu kembali ke putaran pelan
   }
   window.addEventListener('pointerup', endDrag);
   window.addEventListener('pointercancel', endDrag);
 
   window.addEventListener('wheel', e => {
-    if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) az -= e.deltaX * .0015;
+    if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+      const dAz = -e.deltaX * .0015;
+      az += dAz; if (gyroActive) gyroBase += dAz;
+    }
   }, { passive: true });
 
   window.addEventListener('keydown', e => {
     if (document.getElementById('overlay').classList.contains('open')) return;
+    if (gyroActive) return;
     if (e.key === 'ArrowLeft')  azVel = clamp(azVel + .9, -5, 5);
     if (e.key === 'ArrowRight') azVel = clamp(azVel - .9, -5, 5);
   });
@@ -1172,13 +1289,25 @@ function initThree() {
     requestAnimationFrame(tick);
     const dt = Math.min(.05, (now - last) / 1000); last = now; T += dt;
 
-    // kamera: kecepatan mengendur kembali ke putaran pelan
+    // kamera: gyro (jika ada sensor) atau putaran pelan + inersia
     if (!dragging) {
-      az += azVel * dt;
-      azVel += (AUTO_SPEED - azVel) * (1 - Math.exp(-dt * 1.4));
+      if (gyroActive) {
+        const target = gyroBase + GYRO_DIR * gyroAcc;
+        az += (target - az) * (1 - Math.exp(-dt * GYRO_SMOOTH));
+        azVel = 0;
+      } else {
+        az += azVel * dt;
+        azVel += (AUTO_SPEED - azVel) * (1 - Math.exp(-dt * 1.4));
+      }
     }
     camBreath = Math.sin(T * .22) * 1.8;
     placeCamera();
+
+    // bintang berkelip halus
+    for (let i = 0; i < starLayers.length; i++) {
+      const s = starLayers[i];
+      s.mat.opacity = s.base * (.78 + .22 * Math.sin(T * s.spd + s.ph));
+    }
 
     // planet: mengitari Matahari + berotasi pada sumbunya
     bodies.forEach(b => {
