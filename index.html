@@ -763,6 +763,17 @@ function initThree() {
   const deg  = d => d * Math.PI / 180;
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 
+  // Arah kutub utara rotasi tiap benda langit dari data IAU (RA, Dec, J2000) → vektor di kerangka ekliptika.
+  // Dengan ini sumbu setiap planet condong ke ARAH berbeda, bukan hanya miring ke satu sisi yang sama.
+  const OBLIQ = deg(23.4393);
+  const UP = new THREE.Vector3(0, 1, 0);
+  function poleVec(raDeg, decDeg) {
+    const a = deg(raDeg), d = deg(decDeg);
+    const xe = Math.cos(d) * Math.cos(a), ye = Math.cos(d) * Math.sin(a), ze = Math.sin(d);
+    const X = xe, Y = ye * Math.cos(OBLIQ) + ze * Math.sin(OBLIQ), Z = -ye * Math.sin(OBLIQ) + ze * Math.cos(OBLIQ);
+    return new THREE.Vector3(X, Z, -Y).normalize();      // ekliptika (x,y,z) → three (x, z=atas, -y)
+  }
+
   const canvas   = document.getElementById('cosmos');
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -796,7 +807,13 @@ function initThree() {
   const meanLon   = (L0, yr) => deg(L0 + 360 * daysJ2000 / (yr * 365.25));
 
   // Kamera
-  const CAM_ELEV      = deg(36);              // sudut pandang miring dari atas, TETAP (tidak bisa naik/turun)
+  // FPP: kamera "melayang" DI DALAM tata surya (di antara orbit Saturnus & Uranus),
+  // sedikit di atas bidang orbit, selalu menatap Matahari.
+  const CAM_RADIUS    = 196;                  // jarak mendatar dari Matahari (tetap) — di antara orbit Saturnus & Uranus
+  const CAM_HEIGHT    = 20;                   // tinggi di atas bidang orbit — TETAP (tidak bisa naik/turun)
+  // Kemiringan seluruh bidang orbit terhadap kamera. 0 = sudut lurus (sejajar bidang orbit).
+  // Isi mis. deg(23.4) kalau ingin bidang orbit dimiringkan (kamera perlu dinaikkan agar tidak menabrak orbit).
+  const SYSTEM_TILT   = deg(0);
   const AUTO_SPEED    = reduceMotion ? 0 : 0.028;  // rad/detik — putaran pelan saat dibiarkan
   const DRAG_GAIN     = 2.6;                  // rad per lebar layar saat digeser
 
@@ -887,6 +904,11 @@ function initThree() {
     backdrop.add(sky);
   }
 
+  // Grup sistem: semua yang mengikuti bidang orbit (Matahari, planet, orbit, sabuk) ikut miring bersama
+  const system = new THREE.Group();
+  system.rotation.z = SYSTEM_TILT;
+  scene.add(system);
+
   // ═════════════════════════════════════════════════════
   // MATAHARI (pusat tata surya)
   // ═════════════════════════════════════════════════════
@@ -904,40 +926,43 @@ function initThree() {
   const sunMat = new THREE.MeshBasicMaterial({ map: sunFallbackTex() });
   const sun = new THREE.Mesh(new THREE.SphereGeometry(SUN_R, 128, 128), sunMat);
   applyTex(sunMat, 'sun.jpg');
-  scene.add(sun);
+  const sunTilt = new THREE.Group();          // sumbu putar Matahari (kutub IAU: miring ±7,25° dari normal ekliptika)
+  sunTilt.quaternion.setFromUnitVectors(UP, poleVec(286.13, 63.87));
+  sunTilt.add(sun);
+  system.add(sunTilt);
 
   const halo1 = new THREE.Sprite(new THREE.SpriteMaterial({
     map: glowTex([[0, 'rgba(255,214,140,.95)'], [.18, 'rgba(255,170,70,.55)'], [.45, 'rgba(255,120,30,.16)'], [1, 'rgba(255,90,0,0)']]),
     blending: THREE.AdditiveBlending, depthWrite: false, transparent: true,
   }));
-  halo1.scale.setScalar(SUN_R * 7);
+  halo1.scale.setScalar(SUN_R * 5);
   scene.add(halo1);
 
   const halo2 = new THREE.Sprite(new THREE.SpriteMaterial({
     map: glowTex([[0, 'rgba(255,200,120,.22)'], [.4, 'rgba(255,140,60,.07)'], [1, 'rgba(255,100,20,0)']]),
     blending: THREE.AdditiveBlending, depthWrite: false, transparent: true,
   }));
-  halo2.scale.setScalar(SUN_R * 18);
+  halo2.scale.setScalar(SUN_R * 10);
   scene.add(halo2);
 
   // ── PENCAHAYAAN: satu-satunya sumber cahaya = Matahari di titik pusat ──
   scene.add(new THREE.PointLight(0xfff1d6, 2.3, 0));     // distance 0 → tanpa peredaman
-  scene.add(new THREE.AmbientLight(0x2a3550, .8));
+  scene.add(new THREE.AmbientLight(0x2a3550, .95));
 
   // ═════════════════════════════════════════════════════
   // PLANET (urutan asli dari Matahari)
   // ═════════════════════════════════════════════════════
   // au: jarak rata-rata · yr: periode orbit (tahun Bumi) · L0: longitudo rata-rata J2000 (°)
-  // incl: inklinasi orbit (°) · tilt: kemiringan sumbu (°) · r: radius tampilan · spin: detik/putaran
+  // incl: inklinasi orbit (°) · node: bujur simpul naik (°) — arah miringnya orbit · pole: [RA, Dec] kutub utara rotasi (IAU) · r: radius tampilan · spin: detik/putaran (negatif = retrograde)
   const PLANETS = [
-    { key:'mercury', tex:'mercury.jpg', col:0x8c8379, au:.387,  yr:.2408, L0:252.25, incl:7.00, tilt:  .03, r:1.3, spin:240, shin: 3, spec:[.04,.03,.02], emis:0x120e08, ei:.06 },
-    { key:'venus',   tex:'venus.jpg',   col:0xd8b374, au:.723,  yr:.6152, L0:181.98, incl:3.39, tilt:177.4, r:2.8, spin:300, shin:38, spec:[.18,.14,.06], emis:0x1a1005, ei:.12 },
-    { key:'earth',   tex:'earth.jpg',   col:0x2f6fb5, au:1.000, yr:1.000, L0:100.46, incl:0.00, tilt: 23.4, r:2.9, spin: 60, shin:10, spec:[.08,.16,.35], emis:0x0a0e18, ei:.06 },
-    { key:'mars',    tex:'mars.jpg',    col:0xb5532f, au:1.524, yr:1.881, L0:355.43, incl:1.85, tilt: 25.2, r:1.8, spin: 62, shin: 4, spec:[.06,.02,.01], emis:0x100402, ei:.07 },
-    { key:'jupiter', tex:'jupiter.jpg', col:0xc9a27a, au:5.203, yr:11.862,L0: 34.35, incl:1.30, tilt:  3.1, r:8.0, spin: 26, shin:16, spec:[.10,.08,.04], emis:0x100a04, ei:.09 },
-    { key:'saturn',  tex:'saturn.jpg',  col:0xd9c28a, au:9.537, yr:29.457,L0: 50.08, incl:2.49, tilt: 26.7, r:7.0, spin: 28, shin:18, spec:[.12,.10,.05], emis:0x0e0a04, ei:.08, ring:true },
-    { key:'uranus',  tex:'uranus.jpg',  col:0x8fd0d8, au:19.19, yr:84.02, L0:314.06, incl:0.77, tilt: 97.8, r:4.6, spin: 44, shin:42, spec:[.08,.18,.22], emis:0x030c10, ei:.10 },
-    { key:'neptune', tex:'neptune.jpg', col:0x3f62d6, au:30.07, yr:164.8, L0:304.35, incl:1.77, tilt: 28.3, r:4.4, spin: 42, shin:48, spec:[.06,.10,.28], emis:0x02050e, ei:.10 },
+    { key:'mercury', tex:'mercury.jpg', col:0x8c8379, au:.387,  yr:.2408, L0:252.25, incl:7.00, node:48.331, pole:[281.0103, 61.4155], r:1.6, spin:240, shin: 3, spec:[.04,.03,.02], emis:0x120e08, ei:.06 },
+    { key:'venus',   tex:'venus.jpg',   col:0xd8b374, au:.723,  yr:.6152, L0:181.98, incl:3.39, node:76.68, pole:[272.76, 67.16], r:3.2, spin:-300, shin:38, spec:[.18,.14,.06], emis:0x1a1005, ei:.12 },
+    { key:'earth',   tex:'earth.jpg',   col:0x2f6fb5, au:1.000, yr:1.000, L0:100.46, incl:0.00, node:0, pole:[0, 90], r:3.4, spin: 60, shin:10, spec:[.08,.16,.35], emis:0x0a0e18, ei:.06 },
+    { key:'mars',    tex:'mars.jpg',    col:0xb5532f, au:1.524, yr:1.881, L0:355.43, incl:1.85, node:49.579, pole:[317.68143, 52.8865], r:2.1, spin: 62, shin: 4, spec:[.06,.02,.01], emis:0x100402, ei:.07 },
+    { key:'jupiter', tex:'jupiter.jpg', col:0xc9a27a, au:5.203, yr:11.862,L0: 34.35, incl:1.30, node:100.556, pole:[268.056595, 64.495303], r:9.0, spin: 26, shin:16, spec:[.10,.08,.04], emis:0x100a04, ei:.09 },
+    { key:'saturn',  tex:'saturn.jpg',  col:0xd9c28a, au:9.537, yr:29.457,L0: 50.08, incl:2.49, node:113.715, pole:[40.589, 83.537], r:7.5, spin: 28, shin:18, spec:[.12,.10,.05], emis:0x0e0a04, ei:.08, ring:true },
+    { key:'uranus',  tex:'uranus.jpg',  col:0x8fd0d8, au:19.19, yr:84.02, L0:314.06, incl:0.77, node:74.23, pole:[257.311, -15.175], r:5.2, spin:-44, shin:42, spec:[.08,.18,.22], emis:0x030c10, ei:.10 },
+    { key:'neptune', tex:'neptune.jpg', col:0x3f62d6, au:30.07, yr:164.8, L0:304.35, incl:1.77, node:131.722, pole:[299.36, 43.46], r:5.0, spin: 42, shin:48, spec:[.06,.10,.28], emis:0x02050e, ei:.10 },
   ];
 
   const bodies = [];
@@ -947,8 +972,8 @@ function initThree() {
     const R = orbitR(def.au);
 
     const orbit = new THREE.Group();                       // bidang orbit (inklinasi)
-    orbit.rotation.z = deg(def.incl);
-    scene.add(orbit);
+    orbit.rotation.set(deg(def.incl), deg(def.node), 0, 'YXZ');      // bidang orbit: miring sebesar incl ke arah simpul naik
+    system.add(orbit);
 
     // garis orbit tipis
     const pts = [];
@@ -962,7 +987,10 @@ function initThree() {
     ));
 
     const holder = new THREE.Group(); orbit.add(holder);   // titik planet di orbit
-    const tilt   = new THREE.Group(); tilt.rotation.z = deg(def.tilt); holder.add(tilt);   // kemiringan sumbu
+    const tilt   = new THREE.Group(); holder.add(tilt);                                      // arah & kemiringan sumbu
+    // orientasi sumbu ditentukan di kerangka ekliptika, lalu dikurangi rotasi bidang orbit induknya
+    tilt.quaternion.copy(orbit.quaternion).invert()
+      .multiply(new THREE.Quaternion().setFromUnitVectors(UP, poleVec(def.pole[0], def.pole[1])));
 
     const mat = new THREE.MeshPhongMaterial({
       color: def.col, shininess: def.shin, specular: new THREE.Color(...def.spec),
@@ -975,6 +1003,7 @@ function initThree() {
     const body = {
       def, R, holder, tilt, mesh,
       L: meanLon(def.L0, def.yr),
+      node: deg(def.node),
       w: orbitW(def.yr),
       spinW: Math.PI * 2 / def.spin,
     };
@@ -1042,8 +1071,8 @@ function initThree() {
         color: 0xa7a7a7, shininess: 2, specular: new THREE.Color(.04, .04, .04),
         emissive: new THREE.Color(0x111008), emissiveIntensity: .08,
       });
-      const moon = new THREE.Mesh(new THREE.SphereGeometry(.75, 48, 48), moonMat);
-      moon.position.set(7.2, 0, 0);
+      const moon = new THREE.Mesh(new THREE.SphereGeometry(.9, 48, 48), moonMat);
+      moon.position.set(8, 0, 0);
       moonPivot.add(moon);
       applyTex(moonMat, 'moon.jpg');
 
@@ -1057,7 +1086,7 @@ function initThree() {
   // SABUK ASTEROID (antara Mars & Jupiter, ±2.2–3.2 AU)
   // ═════════════════════════════════════════════════════
   const belt = new THREE.Group();
-  scene.add(belt);
+  system.add(belt);
   {
     const N = 3200, g = new THREE.BufferGeometry(), p = new Float32Array(N * 3);
     const r0 = orbitR(2.2), r1 = orbitR(3.2);
@@ -1078,26 +1107,19 @@ function initThree() {
   // ═════════════════════════════════════════════════════
   let az = Math.PI * .5;       // sudut kamera mengitari Matahari (tak terbatas → 360° bebas)
   let azVel = AUTO_SPEED;      // kecepatan sudut (rad/detik)
-  let camR = 330;
+  let camBreath = 0;           // "napas" jarak sangat halus agar terasa hidup (bukan gerak naik/turun)
 
   function placeCamera() {
-    const rh = camR * Math.cos(CAM_ELEV), h = camR * Math.sin(CAM_ELEV);   // h konstan → tak bisa naik/turun
-    camera.position.set(Math.cos(az) * rh, h, Math.sin(az) * rh);
+    const r = CAM_RADIUS + camBreath;
+    camera.position.set(Math.cos(az) * r, CAM_HEIGHT, Math.sin(az) * r);   // tinggi konstan → tak bisa naik/turun
     camera.lookAt(0, 0, 0);                                                // Matahari selalu di tengah layar
   }
 
   function layout() {
-    const w = innerWidth, h = innerHeight, aspect = w / h, portrait = aspect < 1;
+    const w = innerWidth, h = innerHeight, aspect = w / h;
     renderer.setSize(w, h);
     camera.aspect = aspect;
-    camera.fov = portrait ? 60 : 46;
-    const tanH = Math.tan(deg(camera.fov / 2));
-    // Jarak kamera dihitung supaya orbit sejauh Rfit tetap muat di layar,
-    // baik secara vertikal (sisi orbit yang dekat kamera) maupun horizontal.
-    const Rfit = portrait ? orbitR(5.203) : orbitR(19.19);       // mobile: s.d. Jupiter · desktop: s.d. Uranus
-    const dV = Rfit * Math.sin(CAM_ELEV) / (.92 * tanH) + Rfit * Math.cos(CAM_ELEV);
-    const dH = Rfit / (.92 * tanH * aspect);
-    camR = clamp(Math.max(dV, dH), 180, 900);
+    camera.fov = aspect < 1 ? 78 : 56;      // lensa lebar → kesan berada di dalam tata surya
     camera.updateProjectionMatrix();
   }
   window.addEventListener('resize', layout);
@@ -1155,12 +1177,14 @@ function initThree() {
       az += azVel * dt;
       azVel += (AUTO_SPEED - azVel) * (1 - Math.exp(-dt * 1.4));
     }
+    camBreath = Math.sin(T * .22) * 1.8;
     placeCamera();
 
     // planet: mengitari Matahari + berotasi pada sumbunya
     bodies.forEach(b => {
       b.L += b.w * dt;
-      b.holder.position.set(Math.cos(b.L) * b.R, 0, -Math.sin(b.L) * b.R);
+      const th = b.L - b.node;                                           // sudut di bidang orbit, diukur dari simpul naik
+      b.holder.position.set(Math.cos(th) * b.R, 0, -Math.sin(th) * b.R);
       b.mesh.rotation.y += b.spinW * dt;
     });
     belt.rotation.y += beltW * dt;
