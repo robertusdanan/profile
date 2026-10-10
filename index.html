@@ -67,55 +67,59 @@ html, body { width:100%; height:100%; overflow:hidden; background:var(--void); f
   100%{ top:100vh; opacity:0; }
 }
 
-/* ── STAGE & CARD ── */
-.stage {
-  position:fixed; inset:0; z-index:10;
-  display:flex; align-items:center; justify-content:center; padding:20px;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-}
-.card {
-  width:min(340px,92vw);
-  background:var(--glass);
-  border:1px solid var(--edge);
-  border-radius:16px;
-  padding:36px 28px 30px;
-  text-align:center;
-  backdrop-filter:blur(44px) saturate(1.5);
-  -webkit-backdrop-filter:blur(44px) saturate(1.5);
-  position:relative; overflow:hidden;
-  box-shadow:
-    0 0 0 1px rgba(79,128,255,0.05) inset,
-    0 80px 180px rgba(0,0,0,0.88),
-    0 0 120px rgba(79,128,255,0.03);
-  animation:card-in 1.5s var(--ease-expo) both;
-}
+/* ── HUD: panel tersebar di sudut layar, bagian tengah dibiarkan kosong untuk tata surya ── */
+#cosmos { touch-action:none; cursor:grab; }
+body.dragging, body.dragging #cosmos, body.dragging .hud > * { cursor:grabbing; user-select:none; -webkit-user-select:none; }
 @keyframes card-in {
-  from { opacity:0; transform:translateY(50px) scale(0.95); }
+  from { opacity:0; transform:translateY(40px) scale(0.96); }
   to   { opacity:1; transform:none; }
 }
-.card::before {
-  content:'';
-  position:absolute; top:0; left:0; right:0; height:1px;
-  background:linear-gradient(90deg,
-    transparent 0%, rgba(79,128,255,0.7) 25%,
-    rgba(155,114,248,0.9) 50%, rgba(79,128,255,0.7) 75%, transparent 100%
-  );
-  animation:bar-glow 5s ease-in-out infinite;
+.hud { position:fixed; inset:0; z-index:10; pointer-events:none; }
+.hud > * { position:absolute; pointer-events:auto; touch-action:none; }
+
+.id-panel {
+  top:clamp(18px,3vw,36px); left:clamp(18px,3vw,40px);
+  display:flex; align-items:center; gap:16px;
+  padding:14px 24px 14px 16px;
+  background:rgba(8,12,24,0.5);
+  border:1px solid var(--edge);
+  border-radius:20px;
+  backdrop-filter:blur(18px) saturate(1.4);
+  -webkit-backdrop-filter:blur(18px) saturate(1.4);
+  box-shadow:0 0 0 1px rgba(79,128,255,0.05) inset, 0 24px 60px rgba(0,0,0,0.45);
+  animation:card-in 1.4s var(--ease-expo) both;
 }
-@keyframes bar-glow { 0%,100%{opacity:0.5} 50%{opacity:1} }
-.card-inner-glow {
-  position:absolute; top:-40px; left:50%; transform:translateX(-50%);
-  width:220px; height:90px;
-  background:radial-gradient(ellipse,rgba(79,128,255,0.1),transparent 70%);
-  pointer-events:none;
+.id-panel::before {
+  content:''; position:absolute; top:0; left:18px; right:18px; height:1px;
+  background:linear-gradient(90deg,transparent,rgba(79,128,255,0.7),rgba(155,114,248,0.9),rgba(79,128,255,0.7),transparent);
 }
+.id-text { text-align:left; min-width:0; }
+
+.dock {
+  bottom:clamp(18px,3vw,36px);
+  width:min(270px,42vw);
+  display:flex; flex-direction:column; gap:8px;
+}
+.dock-left  { left:clamp(18px,3vw,40px); }
+.dock-right { right:clamp(18px,3vw,40px); }
+.dock:empty { display:none; }
+
+.hint {
+  position:fixed; left:0; width:100%; bottom:50px; z-index:10;
+  text-align:center; pointer-events:none;
+  font-family:var(--ff-mono); font-size:0.6rem; letter-spacing:0.26em; text-transform:uppercase;
+  color:rgba(160,191,255,0.5);
+  animation:card-in 1.5s var(--ease-expo) 1.4s both, hint-out 1.2s ease 10s forwards;
+  transition:opacity .8s ease;
+}
+body.dragged .hint { opacity:0 !important; animation:none; }
+@keyframes hint-out { to { opacity:0; } }
 
 /* ── AVATAR ── */
 .avatar-wrap {
-  position:relative; display:inline-flex;
+  position:relative; display:inline-flex; flex-shrink:0;
   align-items:center; justify-content:center;
-  margin-bottom:18px;
+  margin:0 6px 0 4px;
   animation:card-in 1.5s var(--ease-expo) 0.1s both;
 }
 .orbit-ring {
@@ -156,32 +160,17 @@ html, body { width:100%; height:100%; overflow:hidden; background:var(--void); f
   font-family:var(--ff-head);
   font-size:clamp(1.35rem,3.5vw,1.65rem);
   font-weight:600; color:#fff; letter-spacing:-0.01em; line-height:1.1;
-  animation:card-in 1.5s var(--ease-expo) 0.18s both;
 }
 .name span { color:var(--ice); font-weight:400; }
 .handle {
   font-family:var(--ff-mono);
   font-size:0.6rem; letter-spacing:0.24em; text-transform:uppercase;
   color:var(--accent); margin-top:6px; font-weight:300;
-  animation:card-in 1.5s var(--ease-expo) 0.25s both;
 }
 .tagline {
   font-size:0.72rem; font-weight:300; color:var(--mist);
   margin-top:5px; letter-spacing:0.07em;
-  animation:card-in 1.5s var(--ease-expo) 0.3s both;
 }
-
-/* ── DIVIDER ── */
-.divider {
-  display:flex; align-items:center; gap:10px;
-  margin:18px 0 14px;
-  animation:card-in 1.5s var(--ease-expo) 0.36s both;
-}
-.div-line     { flex:1; height:1px; background:linear-gradient(90deg,transparent,var(--ghost)); }
-.div-line.r   { background:linear-gradient(270deg,transparent,var(--ghost)); }
-.div-pip      { display:flex; gap:4px; align-items:center; }
-.div-pip span { width:3px; height:3px; border-radius:50%; background:var(--ghost); }
-.div-pip span.c { width:5px; height:5px; background:var(--accent); box-shadow:0 0 8px var(--accent); }
 
 /* ── LINK BUTTONS ── */
 .links { display:flex; flex-direction:column; gap:7px; }
@@ -244,6 +233,20 @@ html, body { width:100%; height:100%; overflow:hidden; background:var(--void); f
 .links .link-btn:nth-child(1){ animation:card-in 1.5s var(--ease-expo) 0.45s both; }
 .links .link-btn:nth-child(2){ animation:card-in 1.5s var(--ease-expo) 0.55s both; }
 .links .link-btn:nth-child(3){ animation:card-in 1.5s var(--ease-expo) 0.65s both; }
+.links .link-btn:nth-child(n+4){ animation:card-in 1.5s var(--ease-expo) 0.75s both; }
+.dock .link-btn {
+  background:rgba(8,12,24,0.52);
+  border-color:rgba(79,128,255,0.16);
+  backdrop-filter:blur(14px) saturate(1.4);
+  -webkit-backdrop-filter:blur(14px) saturate(1.4);
+  box-shadow:0 12px 36px rgba(0,0,0,0.4);
+}
+.dock-right .link-btn:hover {
+  transform:translateX(-5px) translateY(-1px);
+  box-shadow:0 6px 24px rgba(79,128,255,0.1), 3px 0 0 var(--accent);
+}
+.dock-right .link-btn:hover .arrow { transform:translateX(5px); }
+.btn-sub { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
 .footer {
   position: fixed;
@@ -378,123 +381,48 @@ html, body { width:100%; height:100%; overflow:hidden; background:var(--void); f
 
 /* ── MOBILE ── */
 @media (max-width: 600px) {
-  .card::after { display: none; }
-}
-
-@media (max-width: 600px) {
 
   html, body {
     overflow: hidden;
     height: 100%; width: 100%;
-    touch-action: manipulation;
+    touch-action: none;
   }
 
   #cosmos { position: fixed; inset: 0; z-index: 0; }
 
-  /* Stage: fixed full screen, card di tengah */
-  .stage {
-    position: fixed; inset: 0; z-index: 10;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 20px 18px;
-    padding-top: max(52px, env(safe-area-inset-top, 0px) + 20px);
-    padding-bottom: max(20px, env(safe-area-inset-bottom, 0px) + 16px);
-    overflow: hidden;
+  /* Identitas: ringkas di kiri atas */
+  .id-panel {
+    top: max(12px, calc(env(safe-area-inset-top, 0px) + 6px)); left: 14px;
+    padding: 9px 16px 9px 10px; gap: 10px; border-radius: 16px;
   }
+  .id-panel::before { left: 14px; right: 14px; }
+  .avatar-wrap { margin: 0 4px 0 3px; }
+  .avatar { width: 46px; height: 46px; border-width: 1.5px; }
+  .avatar-initials { font-size: 14px; letter-spacing: 1.5px; }
+  .orbit-ring { inset: -5px; }
+  .orbit-dot { width: 4px; height: 4px; top: -2px; }
+  .name { font-size: 1.05rem; letter-spacing: -0.02em; }
+  .tagline { font-size: 0.6rem; margin-top: 3px; letter-spacing: 0.05em; color: rgba(96,112,144,0.9); }
 
-  /* ── CARD: float di tengah, transparan ── */
-  .card {
-    width: 100%;
-    max-width: 340px;
-    margin: auto;
-    padding: 28px 20px 26px;
-    border-radius: 24px;
-    border: 1px solid rgba(79,128,255,0.15);
-    /* Transparan — tata surya terlihat di sekitar */
-    background: rgba(4, 7, 16, 0.52);
-    backdrop-filter: blur(24px) saturate(1.5);
-    -webkit-backdrop-filter: blur(24px) saturate(1.5);
-    box-shadow:
-      0 0 0 1px rgba(79,128,255,0.06) inset,
-      0 24px 60px rgba(0,0,0,0.55),
-      0 0 80px rgba(79,128,255,0.05),
-      inset 0 1px 0 rgba(255,255,255,0.06);
-    text-align: center;
-    animation: card-in 0.7s cubic-bezier(0.16,1,0.3,1) both;
+  /* Tautan: dua kolom di bawah, Matahari tetap bebas di tengah */
+  .dock {
+    bottom: max(16px, calc(env(safe-area-inset-bottom, 0px) + 10px));
+    width: calc(50% - 20px); gap: 7px;
   }
-
-  /* Sembunyikan dekorasi tidak perlu di mobile */
-  .card::before { opacity: 0.4; }
-  .card-inner-glow { display: none; }
-  .card::after { display: none; }
-
-  /* ── Avatar compact ── */
-  .avatar-wrap { margin-bottom: 10px; }
-  .avatar {
-    width: 68px; height: 68px;
-    border: 1.5px solid rgba(79,128,255,0.32);
-    box-shadow:
-      0 0 0 3px rgba(79,128,255,0.06),
-      0 0 24px rgba(79,128,255,0.2);
-  }
-  .avatar img {
-    width: 100%; height: 100%;
-    object-fit: cover; border-radius: 50%; display: block;
-  }
-  .avatar-initials { font-size: 18px; letter-spacing: 2px; }
-  .orbit-ring { inset: -8px; }
-  .orbit-dot { width: 5px; height: 5px; top: -2.5px; }
-
-  /* ── Nama & tagline ringkas ── */
-  .name {
-    font-size: clamp(1.25rem, 6vw, 1.55rem);
-    letter-spacing: -0.02em;
-    line-height: 1.1;
-  }
-  .handle {
-    font-size: 0.56rem; letter-spacing: 0.2em;
-    margin-top: 5px; color: rgba(79,128,255,0.78);
-  }
-  .tagline {
-    font-size: 0.7rem; margin-top: 4px;
-    color: rgba(96,112,144,0.82); letter-spacing: 0.08em;
-  }
-
-  /* ── Divider tipis ── */
-  .divider { margin: 14px 0 11px; }
-
-  /* ── Link buttons compact ── */
-  .links { gap: 7px; }
-  .link-btn {
-    padding: 10px 13px;
-    gap: 11px;
-    border-radius: 13px;
-    border: 1px solid rgba(79,128,255,0.09);
-    background: rgba(255,255,255,0.022);
-    transition: border-color .2s, background .2s;
-  }
+  .dock-left  { left: 14px; }
+  .dock-right { right: 14px; }
+  .link-btn { padding: 8px 10px; gap: 9px; border-radius: 12px; }
   .link-btn::before { display: none; }
-  .link-btn:active {
-    transform: scale(0.985);
-    border-color: rgba(79,128,255,0.28);
-    background: rgba(79,128,255,0.06);
-    box-shadow: inset -2px 0 0 var(--accent);
-  }
-  .ico {
-    width: 34px; height: 34px;
-    border-radius: 9px;
-    border: 1px solid rgba(79,128,255,0.11);
-    background: rgba(79,128,255,0.055);
-    flex-shrink: 0;
-  }
-  .ico img { width: 20px; height: 20px; }
-  .btn-title { font-size: 0.7rem; letter-spacing: 0.06em; }
-  .btn-sub   { font-size: 0.6rem; margin-top: 2px; color: rgba(96,112,144,0.75); }
-  .arrow     { font-size: 11px; opacity: 0.3; }
+  .link-btn:active { transform: scale(0.985); border-color: rgba(79,128,255,0.28); }
+  .ico { width: 30px; height: 30px; border-radius: 8px; }
+  .ico img { width: 18px; height: 18px; }
+  .btn-title { font-size: 0.62rem; letter-spacing: 0.05em; }
+  .btn-sub   { font-size: 0.55rem; margin-top: 1px; color: rgba(96,112,144,0.8); }
+  .arrow     { display: none; }
 
-  /* Sembunyikan scan line */
-  .scan { display: none; }
+  .hint { bottom: calc(env(safe-area-inset-bottom, 0px) + 140px); font-size: 0.54rem; }
+  .scan  { display: none; }
+  .footer { display: none; }
 
   /* ── Close button ── */
   .close-btn {
@@ -507,8 +435,6 @@ html, body { width:100%; height:100%; overflow:hidden; background:var(--void); f
     border-color: rgba(79,128,255,0.14);
   }
 
-  /* Footer tersembunyi */
-  .footer { display: none; }
 
   /* ── Modal ── */
   .modal {
@@ -586,35 +512,28 @@ function __onConfigLoaded() {
   </svg>
 </button>
 
-<div class="stage">
-  <div class="card">
-    <div class="card-inner-glow"></div>
-
-    <!-- Avatar -->
+<div class="hud">
+  <!-- Identitas — kiri atas -->
+  <header class="id-panel">
     <div class="avatar-wrap">
       <div class="orbit-ring"><div class="orbit-dot"></div></div>
       <div class="avatar" id="avatarEl">
         <span class="avatar-initials">RD</span>
       </div>
     </div>
-
-    <!-- Identity -->
-    <h1 class="name" id="nameEl">Robertus <span>Danan</span></h1>
-    <p class="handle" id="handleEl"></p>
-    <p class="tagline" id="taglineEl">Creator · Developer · Dreamer</p>
-
-    <!-- Divider -->
-    <div class="divider">
-      <span class="div-line"></span>
-      <span class="div-pip"><span></span><span class="c"></span><span></span></span>
-      <span class="div-line r"></span>
+    <div class="id-text">
+      <h1 class="name" id="nameEl">Robertus <span>Danan</span></h1>
+      <p class="handle" id="handleEl"></p>
+      <p class="tagline" id="taglineEl">Creator · Developer · Dreamer</p>
     </div>
+  </header>
 
-    <!-- Links — diisi JS -->
-    <div class="links" id="linksEl"></div>
-  </div>
+  <!-- Tautan — kiri bawah & kanan bawah (diisi JS) -->
+  <nav class="links dock dock-left"  id="linksLeft"></nav>
+  <nav class="links dock dock-right" id="linksRight"></nav>
 </div>
 
+<p class="hint">◂ &nbsp; geser untuk mengitari matahari &nbsp; ▸</p>
 <p class="footer" id="footerEl">⁝ &nbsp; @robertusdanan &nbsp; ⁝</p>
 
 <!-- MODAL -->
@@ -730,8 +649,7 @@ function renderProfile(profile, avatarType, avatarB64) {
 
 function renderLinks(links) {
   LINKS = links;
-  const container = document.getElementById('linksEl');
-  container.innerHTML = links.map((link, i) => `
+  const btn = (link, i) => `
     <button class="link-btn" onclick="openModal(${i})">
       <div class="ico">${iconSmall(link, i)}</div>
       <div class="btn-text">
@@ -739,8 +657,11 @@ function renderLinks(links) {
         <span class="btn-sub">${link.sub}</span>
       </div>
       <span class="arrow">&#x2192;</span>
-    </button>
-  `).join('');
+    </button>`;
+  // Bagi dua: separuh pertama di kiri bawah, sisanya di kanan bawah
+  const half = Math.ceil(links.length / 2);
+  document.getElementById('linksLeft').innerHTML  = links.slice(0, half).map((l, k) => btn(l, k)).join('');
+  document.getElementById('linksRight').innerHTML = links.slice(half).map((l, k) => btn(l, half + k)).join('');
 }
 
 // ─── MAIN INIT ────────────────────────────────────────
@@ -831,33 +752,71 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal()
 
 // ═══════════════════════════════════════════════════════
 // THREE.JS — Solar System Background
+// Heliosentris: Matahari di pusat, planet mengorbit sesuai urutan asli.
+// Kamera mengorbit Matahari 360° secara horizontal saja (tanpa naik/turun).
 // ═══════════════════════════════════════════════════════
 function initThree() {
   const TEX_BASE = SUPABASE_URL
     ? `${SUPABASE_URL.replace(/\/$/, '')}/storage/v1/object/public/textures/`
     : '';
 
+  const deg  = d => d * Math.PI / 180;
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
   const canvas   = document.getElementById('cosmos');
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.setClearColor(0x000105, 1);
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.setSize(innerWidth, innerHeight);
 
-  const isMobile = () => window.innerWidth <= 600;
-
   const scene  = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(48, innerWidth / innerHeight, 0.1, 6000);
-  camera.position.set(0, 0, 42);
+  const camera = new THREE.PerspectiveCamera(46, innerWidth / innerHeight, 1, 7000);
 
+  const reduceMotion = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+  // ═════════════════════════════════════════════════════
+  // SKALA & KONFIGURASI
+  // ═════════════════════════════════════════════════════
+  // Jarak orbit: urutan & perbandingan relatif mengikuti jarak asli (AU), tapi
+  // dipadatkan (pangkat 0,35) supaya seluruh tata surya muat di layar.
+  //   Merkurius 0.39 AU · Venus 0.72 · Bumi 1.00 · Mars 1.52 · (sabuk asteroid 2.2–3.2)
+  //   Jupiter 5.20 · Saturnus 9.54 · Uranus 19.2 · Neptunus 30.1
+  const SUN_R   = 34;
+  const orbitR  = au => 2.3 + 75 * Math.pow(au, .35);
+
+  // Kecepatan orbit: planet dalam lebih cepat dari planet luar (hukum Kepler),
+  // dengan rentang dipadatkan (eksponen < 1) agar planet luar tidak terlihat diam.
+  const EARTH_YEAR_SEC = 140;                 // 1 "tahun" Bumi = 140 detik layar
+  const PERIOD_EXP     = 0.75;                // 1.0 = Kepler murni, makin kecil makin ringkas
+  const BASE_W  = Math.PI * 2 / EARTH_YEAR_SEC;
+  const orbitW  = yr => BASE_W * Math.pow(yr, -PERIOD_EXP);
+
+  // Posisi awal planet = posisi nyata hari ini (longitudo rata-rata heliosentris dari epoch J2000)
+  const daysJ2000 = (Date.now() - Date.UTC(2000, 0, 1, 12)) / 86400000;
+  const meanLon   = (L0, yr) => deg(L0 + 360 * daysJ2000 / (yr * 365.25));
+
+  // Kamera
+  const CAM_ELEV      = deg(36);              // sudut pandang miring dari atas, TETAP (tidak bisa naik/turun)
+  const AUTO_SPEED    = reduceMotion ? 0 : 0.028;  // rad/detik — putaran pelan saat dibiarkan
+  const DRAG_GAIN     = 2.6;                  // rad per lebar layar saat digeser
+
+  // ═════════════════════════════════════════════════════
+  // HELPER
+  // ═════════════════════════════════════════════════════
   const texLoader = new THREE.TextureLoader();
-  function planetTex(file, { srgb = true } = {}) {
-    if (!TEX_BASE) return new THREE.Texture();
-    const t = texLoader.load(TEX_BASE + file);
-    t.anisotropy = renderer.capabilities.getMaxAnisotropy();
-    if (srgb && THREE.sRGBEncoding !== undefined) t.encoding = THREE.sRGBEncoding;
-    return t;
+  const maxAniso  = renderer.capabilities.getMaxAnisotropy();
+
+  // Material dimulai dengan warna cadangan; tekstur dipasang saat berhasil dimuat.
+  function applyTex(mat, file) {
+    if (!TEX_BASE) return;
+    texLoader.load(TEX_BASE + file, t => {
+      t.anisotropy = maxAniso;
+      if (THREE.sRGBEncoding !== undefined) t.encoding = THREE.sRGBEncoding;
+      mat.map = t;
+      if ('emissiveMap' in mat) mat.emissiveMap = t;
+      mat.color.set(0xffffff);
+      mat.needsUpdate = true;
+    }, undefined, () => { /* gagal muat → tetap pakai warna cadangan */ });
   }
 
   function cv(w, h) {
@@ -866,333 +825,365 @@ function initThree() {
     return { c, x: c.getContext('2d') };
   }
 
-  // ── STAR FIELD ────────────────────────────────────────
-  function mkStars(n, spread, sz, op, col, zOff) {
+  function glowTex(stops) {
+    const { c, x } = cv(256, 256);
+    const g = x.createRadialGradient(128, 128, 0, 128, 128, 128);
+    stops.forEach(([o, col]) => g.addColorStop(o, col));
+    x.fillStyle = g; x.fillRect(0, 0, 256, 256);
+    return new THREE.CanvasTexture(c);
+  }
+  const dotTex = glowTex([[0, 'rgba(255,255,255,1)'], [.25, 'rgba(255,255,255,.85)'], [.6, 'rgba(255,255,255,.3)'], [1, 'rgba(255,255,255,0)']]);
+
+  // ═════════════════════════════════════════════════════
+  // LATAR: BINTANG & BIMASAKTI (mengelilingi 360°)
+  // ═════════════════════════════════════════════════════
+  const backdrop = new THREE.Group();
+  scene.add(backdrop);
+
+  function mkStars(n, rMin, rMax, size, op, color) {
     const g = new THREE.BufferGeometry(), p = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) {
-      p[i*3]   = (Math.random()-.5)*spread;
-      p[i*3+1] = (Math.random()-.5)*spread;
-      p[i*3+2] = (Math.random()-.5)*spread + (zOff||0) - 50;
+      const u = Math.random() * 2 - 1, th = Math.random() * Math.PI * 2;
+      const s = Math.sqrt(1 - u * u), r = rMin + Math.random() * (rMax - rMin);
+      p[i*3] = r * s * Math.cos(th); p[i*3+1] = r * u; p[i*3+2] = r * s * Math.sin(th);
     }
     g.setAttribute('position', new THREE.BufferAttribute(p, 3));
-    const { c, x } = cv(32, 32);
-    const gr = x.createRadialGradient(16,16,0,16,16,16);
-    gr.addColorStop(0, col || 'rgba(220,235,255,1)');
-    gr.addColorStop(.25, col || 'rgba(180,205,255,.9)');
-    gr.addColorStop(.6, col || 'rgba(140,170,255,.4)');
-    gr.addColorStop(1, 'rgba(0,0,0,0)');
-    x.fillStyle = gr; x.beginPath(); x.arc(16,16,16,0,Math.PI*2); x.fill();
-    scene.add(new THREE.Points(g, new THREE.PointsMaterial({
-      size: sz, map: new THREE.CanvasTexture(c), sizeAttenuation: true,
+    const pts = new THREE.Points(g, new THREE.PointsMaterial({
+      size, map: dotTex, color, sizeAttenuation: false,
       transparent: true, opacity: op, alphaTest: .005, depthWrite: false,
+    }));
+    pts.renderOrder = -9;
+    backdrop.add(pts);
+  }
+  mkStars(5200, 1500, 3000, 1.1, .55, 0xdce8ff);
+  mkStars(1800, 1500, 3000, 1.7, .55, 0xc8d7ff);
+  mkStars( 600, 1500, 3000, 2.4, .70, 0xffffff);
+  mkStars( 120, 1500, 3000, 3.4, .85, 0xfff1d0);
+  mkStars(  50, 1500, 3000, 4.4, .90, 0xffe0b8);
+  mkStars(  18, 1500, 3000, 6.0, .90, 0xb4dcff);
+
+  {
+    const W = 2048, H = 1024, { c, x } = cv(W, H);
+    const blob = (px, py, r, col) => {
+      [-W, 0, W].forEach(o => {            // wrap horizontal supaya tidak ada sambungan
+        const g = x.createRadialGradient(px + o, py, 0, px + o, py, r);
+        g.addColorStop(0, col); g.addColorStop(1, 'rgba(0,0,0,0)');
+        x.fillStyle = g; x.fillRect(px + o - r, py - r, r * 2, r * 2);
+      });
+    };
+    for (let i = 0; i < 420; i++) {
+      const py = H / 2 + (Math.random() + Math.random() + Math.random() - 1.5) * 150;
+      const col = `rgba(${90 + Math.random()*50|0},${110 + Math.random()*50|0},${190 + Math.random()*50|0},${.018 + Math.random()*.03})`;
+      blob(Math.random() * W, py, 40 + Math.random() * 130, col);
+    }
+    blob(W * .32, H / 2,      320, 'rgba(120,140,230,.12)');
+    blob(W * .78, H / 2 - 30, 260, 'rgba(130,70,190,.08)');
+    const sky = new THREE.Mesh(
+      new THREE.SphereGeometry(3200, 48, 32),
+      new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), side: THREE.BackSide, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })
+    );
+    sky.rotation.set(.3, 0, .45);
+    sky.renderOrder = -10;
+    backdrop.add(sky);
+  }
+
+  // ═════════════════════════════════════════════════════
+  // MATAHARI (pusat tata surya)
+  // ═════════════════════════════════════════════════════
+  function sunFallbackTex() {
+    const { c, x } = cv(512, 256);
+    const g = x.createLinearGradient(0, 0, 0, 256);
+    g.addColorStop(0, '#ff9a1f'); g.addColorStop(.5, '#ffc23d'); g.addColorStop(1, '#ff9a1f');
+    x.fillStyle = g; x.fillRect(0, 0, 512, 256);
+    for (let i = 0; i < 900; i++) {
+      x.fillStyle = Math.random() < .5 ? 'rgba(255,225,120,.18)' : 'rgba(200,70,0,.14)';
+      x.beginPath(); x.arc(Math.random() * 512, Math.random() * 256, 2 + Math.random() * 10, 0, 7); x.fill();
+    }
+    return new THREE.CanvasTexture(c);
+  }
+  const sunMat = new THREE.MeshBasicMaterial({ map: sunFallbackTex() });
+  const sun = new THREE.Mesh(new THREE.SphereGeometry(SUN_R, 128, 128), sunMat);
+  applyTex(sunMat, 'sun.jpg');
+  scene.add(sun);
+
+  const halo1 = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: glowTex([[0, 'rgba(255,214,140,.95)'], [.18, 'rgba(255,170,70,.55)'], [.45, 'rgba(255,120,30,.16)'], [1, 'rgba(255,90,0,0)']]),
+    blending: THREE.AdditiveBlending, depthWrite: false, transparent: true,
+  }));
+  halo1.scale.setScalar(SUN_R * 7);
+  scene.add(halo1);
+
+  const halo2 = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: glowTex([[0, 'rgba(255,200,120,.22)'], [.4, 'rgba(255,140,60,.07)'], [1, 'rgba(255,100,20,0)']]),
+    blending: THREE.AdditiveBlending, depthWrite: false, transparent: true,
+  }));
+  halo2.scale.setScalar(SUN_R * 18);
+  scene.add(halo2);
+
+  // ── PENCAHAYAAN: satu-satunya sumber cahaya = Matahari di titik pusat ──
+  scene.add(new THREE.PointLight(0xfff1d6, 2.3, 0));     // distance 0 → tanpa peredaman
+  scene.add(new THREE.AmbientLight(0x2a3550, .8));
+
+  // ═════════════════════════════════════════════════════
+  // PLANET (urutan asli dari Matahari)
+  // ═════════════════════════════════════════════════════
+  // au: jarak rata-rata · yr: periode orbit (tahun Bumi) · L0: longitudo rata-rata J2000 (°)
+  // incl: inklinasi orbit (°) · tilt: kemiringan sumbu (°) · r: radius tampilan · spin: detik/putaran
+  const PLANETS = [
+    { key:'mercury', tex:'mercury.jpg', col:0x8c8379, au:.387,  yr:.2408, L0:252.25, incl:7.00, tilt:  .03, r:1.3, spin:240, shin: 3, spec:[.04,.03,.02], emis:0x120e08, ei:.06 },
+    { key:'venus',   tex:'venus.jpg',   col:0xd8b374, au:.723,  yr:.6152, L0:181.98, incl:3.39, tilt:177.4, r:2.8, spin:300, shin:38, spec:[.18,.14,.06], emis:0x1a1005, ei:.12 },
+    { key:'earth',   tex:'earth.jpg',   col:0x2f6fb5, au:1.000, yr:1.000, L0:100.46, incl:0.00, tilt: 23.4, r:2.9, spin: 60, shin:10, spec:[.08,.16,.35], emis:0x0a0e18, ei:.06 },
+    { key:'mars',    tex:'mars.jpg',    col:0xb5532f, au:1.524, yr:1.881, L0:355.43, incl:1.85, tilt: 25.2, r:1.8, spin: 62, shin: 4, spec:[.06,.02,.01], emis:0x100402, ei:.07 },
+    { key:'jupiter', tex:'jupiter.jpg', col:0xc9a27a, au:5.203, yr:11.862,L0: 34.35, incl:1.30, tilt:  3.1, r:8.0, spin: 26, shin:16, spec:[.10,.08,.04], emis:0x100a04, ei:.09 },
+    { key:'saturn',  tex:'saturn.jpg',  col:0xd9c28a, au:9.537, yr:29.457,L0: 50.08, incl:2.49, tilt: 26.7, r:7.0, spin: 28, shin:18, spec:[.12,.10,.05], emis:0x0e0a04, ei:.08, ring:true },
+    { key:'uranus',  tex:'uranus.jpg',  col:0x8fd0d8, au:19.19, yr:84.02, L0:314.06, incl:0.77, tilt: 97.8, r:4.6, spin: 44, shin:42, spec:[.08,.18,.22], emis:0x030c10, ei:.10 },
+    { key:'neptune', tex:'neptune.jpg', col:0x3f62d6, au:30.07, yr:164.8, L0:304.35, incl:1.77, tilt: 28.3, r:4.4, spin: 42, shin:48, spec:[.06,.10,.28], emis:0x02050e, ei:.10 },
+  ];
+
+  const bodies = [];
+  let earthBody = null;
+
+  PLANETS.forEach(def => {
+    const R = orbitR(def.au);
+
+    const orbit = new THREE.Group();                       // bidang orbit (inklinasi)
+    orbit.rotation.z = deg(def.incl);
+    scene.add(orbit);
+
+    // garis orbit tipis
+    const pts = [];
+    for (let i = 0; i <= 256; i++) {
+      const a = i / 256 * Math.PI * 2;
+      pts.push(new THREE.Vector3(Math.cos(a) * R, 0, -Math.sin(a) * R));
+    }
+    orbit.add(new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(pts),
+      new THREE.LineBasicMaterial({ color: 0x9db7ff, transparent: true, opacity: .26, depthWrite: false })
+    ));
+
+    const holder = new THREE.Group(); orbit.add(holder);   // titik planet di orbit
+    const tilt   = new THREE.Group(); tilt.rotation.z = deg(def.tilt); holder.add(tilt);   // kemiringan sumbu
+
+    const mat = new THREE.MeshPhongMaterial({
+      color: def.col, shininess: def.shin, specular: new THREE.Color(...def.spec),
+      emissive: new THREE.Color(def.emis), emissiveIntensity: def.ei,
+    });
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(def.r, 96, 96), mat);
+    tilt.add(mesh);
+    applyTex(mat, def.tex);
+
+    const body = {
+      def, R, holder, tilt, mesh,
+      L: meanLon(def.L0, def.yr),
+      w: orbitW(def.yr),
+      spinW: Math.PI * 2 / def.spin,
+    };
+
+    // Cincin Saturnus (sebidang dengan ekuator, ikut miring bersama sumbu)
+    if (def.ring) {
+      const inner = def.r * 1.28, outer = def.r * 2.65;
+      const ringGeo = new THREE.RingGeometry(inner, outer, 256, 1);
+      const pos = ringGeo.attributes.position, uv = ringGeo.attributes.uv, v = new THREE.Vector3();
+      for (let i = 0; i < pos.count; i++) {
+        v.fromBufferAttribute(pos, i);
+        uv.setXY(i, (v.length() - inner) / (outer - inner), .5);
+      }
+      const ringMat = new THREE.MeshBasicMaterial({ color: 0xcdb892, side: THREE.DoubleSide, transparent: true, opacity: .92, depthWrite: false });
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.rotation.x = -Math.PI / 2;
+      tilt.add(ring);
+      applyTex(ringMat, 'saturn_ring.png');
+    }
+
+    // Bumi: atmosfer, shader gelombang 4D, dan Bulan
+    if (def.key === 'earth') {
+      const eR = def.r;
+      [
+        { r: eR*1.012, op: .22,  c: new THREE.Color(.4, .6, .95) },
+        { r: eR*1.03,  op: .12,  c: new THREE.Color(.3, .5, .9)  },
+        { r: eR*1.06,  op: .06,  c: new THREE.Color(.2, .4, .82) },
+        { r: eR*1.1,   op: .03,  c: new THREE.Color(.14,.32,.75) },
+        { r: eR*1.16,  op: .014, c: new THREE.Color(.1, .25,.65) },
+      ].forEach(({ r, op, c }) => {
+        tilt.add(new THREE.Mesh(
+          new THREE.SphereGeometry(r, 48, 48),
+          new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: op, side: THREE.FrontSide, depthWrite: false, blending: THREE.AdditiveBlending })
+        ));
+      });
+
+      const w4dMat = new THREE.ShaderMaterial({
+        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.FrontSide,
+        uniforms: { time: { value: 0 }, w4: { value: 0 }, opacity: { value: 0 } },
+        vertexShader: `
+          uniform float time;uniform float w4;varying float vW4;varying vec3 vNorm;
+          void main(){
+            vNorm=normalize(normalMatrix*normal);
+            float phi=atan(position.y,position.x);float theta=asin(position.z/length(position));
+            float w4proj=sin(phi*3.0+theta*2.0+time*.6)*cos(w4*1.8+time*.35)*.012;
+            vec3 displaced=position*(1.0+w4proj);vW4=w4proj;
+            gl_Position=projectionMatrix*modelViewMatrix*vec4(displaced,1.0);
+          }`,
+        fragmentShader: `
+          uniform float opacity;varying float vW4;varying vec3 vNorm;
+          void main(){
+            float fresnel=pow(1.0-abs(dot(vNorm,vec3(0.0,0.0,1.0))),3.2);
+            float col4d=vW4*80.0+0.5;
+            vec3 c=mix(vec3(.12,.48,1.),vec3(.8,.3,1.),col4d)*fresnel;
+            gl_FragColor=vec4(c,fresnel*opacity*.55);
+          }`,
+      });
+      const w4dMesh = new THREE.Mesh(new THREE.SphereGeometry(eR * 1.08, 48, 48), w4dMat);
+      tilt.add(w4dMesh);
+
+      // Bulan — mengorbit Bumi, selalu menghadapkan sisi yang sama (tidally locked)
+      const moonTilt  = new THREE.Group(); moonTilt.rotation.z = deg(5.1); holder.add(moonTilt);
+      const moonPivot = new THREE.Group(); moonPivot.rotation.y = Math.random() * Math.PI * 2; moonTilt.add(moonPivot);
+      const moonMat = new THREE.MeshPhongMaterial({
+        color: 0xa7a7a7, shininess: 2, specular: new THREE.Color(.04, .04, .04),
+        emissive: new THREE.Color(0x111008), emissiveIntensity: .08,
+      });
+      const moon = new THREE.Mesh(new THREE.SphereGeometry(.75, 48, 48), moonMat);
+      moon.position.set(7.2, 0, 0);
+      moonPivot.add(moon);
+      applyTex(moonMat, 'moon.jpg');
+
+      earthBody = { mesh, w4dMat, w4dMesh, moonPivot, moonW: Math.PI * 2 / 36 };
+    }
+
+    bodies.push(body);
+  });
+
+  // ═════════════════════════════════════════════════════
+  // SABUK ASTEROID (antara Mars & Jupiter, ±2.2–3.2 AU)
+  // ═════════════════════════════════════════════════════
+  const belt = new THREE.Group();
+  scene.add(belt);
+  {
+    const N = 3200, g = new THREE.BufferGeometry(), p = new Float32Array(N * 3);
+    const r0 = orbitR(2.2), r1 = orbitR(3.2);
+    for (let i = 0; i < N; i++) {
+      const a = Math.random() * Math.PI * 2, r = r0 + Math.random() * (r1 - r0);
+      p[i*3] = Math.cos(a) * r; p[i*3+1] = (Math.random() - .5) * 3.2; p[i*3+2] = -Math.sin(a) * r;
+    }
+    g.setAttribute('position', new THREE.BufferAttribute(p, 3));
+    belt.add(new THREE.Points(g, new THREE.PointsMaterial({
+      size: 1.5, map: dotTex, color: 0xb3a08a, sizeAttenuation: false,
+      transparent: true, opacity: .55, alphaTest: .005, depthWrite: false,
     })));
   }
-  mkStars(4000,1100,.11,.5,null,-200);
-  mkStars(1500,700,.2,.45,'rgba(200,215,255,1)',-100);
-  mkStars(500,300,.35,.65,null,-50);
-  mkStars(120,150,.6,.75,'rgba(255,248,220,1)');
-  mkStars(60,90,.95,.82,'rgba(255,225,185,1)');
-  mkStars(20,50,1.4,.9,'rgba(180,220,255,1)');
+  const beltW = orbitW(4.4);
 
-  // ── MILKY WAY ─────────────────────────────────────────
-  {
-    const { c, x } = cv(2048, 1024);
-    const g1 = x.createRadialGradient(650,512,0,650,512,750);
-    g1.addColorStop(0,'rgba(55,75,185,.26)'); g1.addColorStop(.5,'rgba(35,55,145,.1)'); g1.addColorStop(1,'rgba(0,0,0,0)');
-    x.fillStyle = g1; x.fillRect(0,0,2048,1024);
-    const g2 = x.createRadialGradient(1450,380,0,1450,380,450);
-    g2.addColorStop(0,'rgba(110,55,175,.18)'); g2.addColorStop(1,'rgba(0,0,0,0)');
-    x.fillStyle = g2; x.fillRect(0,0,2048,1024);
-    const g3 = x.createRadialGradient(1100,600,0,1100,600,300);
-    g3.addColorStop(0,'rgba(80,120,200,.12)'); g3.addColorStop(1,'rgba(0,0,0,0)');
-    x.fillStyle = g3; x.fillRect(0,0,2048,1024);
-    const m = new THREE.Mesh(
-      new THREE.PlaneGeometry(900, 450),
-      new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, opacity: .98, depthWrite: false, blending: THREE.AdditiveBlending })
-    );
-    m.position.set(0, 0, -350); scene.add(m);
+  // ═════════════════════════════════════════════════════
+  // KAMERA: orbit horizontal 360° mengelilingi Matahari
+  // ═════════════════════════════════════════════════════
+  let az = Math.PI * .5;       // sudut kamera mengitari Matahari (tak terbatas → 360° bebas)
+  let azVel = AUTO_SPEED;      // kecepatan sudut (rad/detik)
+  let camR = 330;
+
+  function placeCamera() {
+    const rh = camR * Math.cos(CAM_ELEV), h = camR * Math.sin(CAM_ELEV);   // h konstan → tak bisa naik/turun
+    camera.position.set(Math.cos(az) * rh, h, Math.sin(az) * rh);
+    camera.lookAt(0, 0, 0);                                                // Matahari selalu di tengah layar
   }
 
-  // ── EARTH ─────────────────────────────────────────────
-  const earthTex = planetTex('earth.jpg');
-  const eR = 14;
-  const earth = new THREE.Mesh(
-    new THREE.SphereGeometry(eR, 256, 256),
-    new THREE.MeshPhongMaterial({
-      map: earthTex, shininess: 10,
-      specular: new THREE.Color(.08,.16,.35),
-      emissive: new THREE.Color(0x0a0e18),
-      emissiveMap: earthTex, emissiveIntensity: .06,
-    })
-  );
-  earth.position.set(34,-24,-10); earth.rotation.z = .4; scene.add(earth);
+  function layout() {
+    const w = innerWidth, h = innerHeight, aspect = w / h, portrait = aspect < 1;
+    renderer.setSize(w, h);
+    camera.aspect = aspect;
+    camera.fov = portrait ? 60 : 46;
+    const tanH = Math.tan(deg(camera.fov / 2));
+    // Jarak kamera dihitung supaya orbit sejauh Rfit tetap muat di layar,
+    // baik secara vertikal (sisi orbit yang dekat kamera) maupun horizontal.
+    const Rfit = portrait ? orbitR(5.203) : orbitR(19.19);       // mobile: s.d. Jupiter · desktop: s.d. Uranus
+    const dV = Rfit * Math.sin(CAM_ELEV) / (.92 * tanH) + Rfit * Math.cos(CAM_ELEV);
+    const dH = Rfit / (.92 * tanH * aspect);
+    camR = clamp(Math.max(dV, dH), 180, 900);
+    camera.updateProjectionMatrix();
+  }
+  window.addEventListener('resize', layout);
+  window.addEventListener('orientationchange', () => setTimeout(layout, 250));
+  layout();
 
-  // Atmosphere rim glow
-  [
-    {r:eR*1.012,op:.22,c:new THREE.Color(.4,.6,.95)},
-    {r:eR*1.03, op:.12,c:new THREE.Color(.3,.5,.9)},
-    {r:eR*1.06, op:.06,c:new THREE.Color(.2,.4,.82)},
-    {r:eR*1.1,  op:.03,c:new THREE.Color(.14,.32,.75)},
-    {r:eR*1.16, op:.014,c:new THREE.Color(.1,.25,.65)},
-  ].forEach(({r,op,c}) => {
-    const m = new THREE.Mesh(
-      new THREE.SphereGeometry(r,64,64),
-      new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:op,side:THREE.FrontSide,depthWrite:false,blending:THREE.AdditiveBlending})
-    );
-    m.position.copy(earth.position); scene.add(m);
+  // ── Input: geser horizontal (mouse/touch), roda horizontal, tombol panah ──
+  let dragging = false, dragId = null, lastX = 0, lastT = 0, dragVel = 0;
+
+  document.addEventListener('pointerdown', e => {
+    if (e.button !== undefined && e.button !== 0) return;
+    if (e.target.closest && e.target.closest('.link-btn, button, a, .overlay, .close-btn')) return;
+    document.body.classList.add('dragged');
+    dragging = true; dragId = e.pointerId; lastX = e.clientX; lastT = performance.now(); dragVel = 0; azVel = 0;
+    document.body.classList.add('dragging');
+  });
+  window.addEventListener('pointermove', e => {
+    if (!dragging || e.pointerId !== dragId) return;
+    const now = performance.now(), dt = Math.max(1, now - lastT) / 1000;
+    const dAz = (e.clientX - lastX) / innerWidth * DRAG_GAIN;      // geser kanan → kamera berputar ke kiri (seperti "menggenggam" dunia)
+    az += dAz;
+    dragVel = dragVel * .6 + (dAz / dt) * .4;
+    lastX = e.clientX; lastT = now;
+  });
+  function endDrag(e) {
+    if (!dragging || (e && e.pointerId !== dragId)) return;
+    dragging = false;
+    document.body.classList.remove('dragging');
+    azVel = clamp(dragVel, -5, 5);                                 // inersia halus, lalu kembali ke putaran pelan
+  }
+  window.addEventListener('pointerup', endDrag);
+  window.addEventListener('pointercancel', endDrag);
+
+  window.addEventListener('wheel', e => {
+    if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) az -= e.deltaX * .0015;
+  }, { passive: true });
+
+  window.addEventListener('keydown', e => {
+    if (document.getElementById('overlay').classList.contains('open')) return;
+    if (e.key === 'ArrowLeft')  azVel = clamp(azVel + .9, -5, 5);
+    if (e.key === 'ArrowRight') azVel = clamp(azVel - .9, -5, 5);
   });
 
-  // ── MOON ──────────────────────────────────────────────
-  const moonTex = planetTex('moon.jpg');
-  const moon = new THREE.Mesh(
-    new THREE.SphereGeometry(3,64,64),
-    new THREE.MeshPhongMaterial({
-      map: moonTex,
-      shininess: 2,
-      specular: new THREE.Color(.04,.04,.04),
-      emissive: new THREE.Color(0x111008),
-      emissiveMap: moonTex,
-      emissiveIntensity: .08,
-    })
-  );
-  scene.add(moon);
+  // ═════════════════════════════════════════════════════
+  // LOOP ANIMASI
+  // ═════════════════════════════════════════════════════
+  let T = 0, last = performance.now();
 
-  // ── SUN ───────────────────────────────────────────────
-  const sunTex = planetTex('sun.jpg');
-  const sunR = 25;
-  const sun = new THREE.Mesh(new THREE.SphereGeometry(sunR,128,128), new THREE.MeshBasicMaterial({map:sunTex}));
-  sun.position.set(-120,55,-200); scene.add(sun);
-
-  // ── LIGHTING ──────────────────────────────────────────
-  const sunLight = new THREE.DirectionalLight(0xfff6e0, 2.4);
-  sunLight.position.copy(sun.position); sunLight.castShadow = true;
-  sunLight.shadow.mapSize.width = 2048; sunLight.shadow.mapSize.height = 2048;
-  scene.add(sunLight);
-  scene.add(new THREE.AmbientLight(0x1a2030,.7));
-  const fill = new THREE.DirectionalLight(0x1835a0,.28);
-  fill.position.set(50,-20,30); scene.add(fill);
-  const earthFill = new THREE.PointLight(0x2244aa,.6,60);
-  earthFill.position.copy(earth.position); scene.add(earthFill);
-
-  // ── PLANETS ───────────────────────────────────────────
-  const mercuryTex = planetTex('mercury.jpg');
-  const mercury = new THREE.Mesh(new THREE.SphereGeometry(1.6,64,64), new THREE.MeshPhongMaterial({map:mercuryTex,shininess:3,specular:new THREE.Color(.04,.03,.02),emissive:new THREE.Color(0x120e08),emissiveMap:mercuryTex,emissiveIntensity:.06}));
-  mercury.position.set(40,30,-78); scene.add(mercury);
-
-  const venusTex = planetTex('venus.jpg');
-  const ven = new THREE.Mesh(new THREE.SphereGeometry(2.6,64,64), new THREE.MeshPhongMaterial({map:venusTex,shininess:38,specular:new THREE.Color(.18,.14,.06),emissive:new THREE.Color(0x1a1005),emissiveMap:venusTex,emissiveIntensity:.12}));
-  ven.position.set(-75,32,-115); scene.add(ven);
-
-  const marsTex = planetTex('mars.jpg');
-  const mars = new THREE.Mesh(new THREE.SphereGeometry(2.3,64,64), new THREE.MeshPhongMaterial({map:marsTex,shininess:4,specular:new THREE.Color(.06,.02,.01),emissive:new THREE.Color(0x100402),emissiveMap:marsTex,emissiveIntensity:.07}));
-  mars.position.set(-32,18,-65); scene.add(mars);
-
-  const jR = 5.5;
-  const jupTex = planetTex('jupiter.jpg');
-  const jup = new THREE.Mesh(new THREE.SphereGeometry(jR,128,128), new THREE.MeshPhongMaterial({map:jupTex,shininess:16,specular:new THREE.Color(.1,.08,.04),emissive:new THREE.Color(0x100a04),emissiveMap:jupTex,emissiveIntensity:.09}));
-  jup.position.set(-60,12,-110); scene.add(jup);
-
-  const sR = 4.2;
-  const satTex = planetTex('saturn.jpg');
-  const sat = new THREE.Mesh(new THREE.SphereGeometry(sR,128,128), new THREE.MeshPhongMaterial({map:satTex,shininess:18,specular:new THREE.Color(.12,.1,.05),emissive:new THREE.Color(0x0e0a04),emissiveMap:satTex,emissiveIntensity:.08}));
-  sat.position.set(65,28,-145); scene.add(sat);
-
-  const ringTex = planetTex('saturn_ring.png');
-  const ringGeo = new THREE.RingGeometry(sR*1.28,sR*2.65,512);
-  const rPos = ringGeo.attributes.position, rUV = ringGeo.attributes.uv;
-  for(let i=0;i<rPos.count;i++){
-    const v=new THREE.Vector3(rPos.getX(i),rPos.getY(i),rPos.getZ(i));
-    rUV.setXY(i,(v.length()-sR*1.28)/(sR*2.65-sR*1.28),.5);
-  }
-  const ringMesh = new THREE.Mesh(ringGeo,new THREE.MeshBasicMaterial({map:ringTex,side:THREE.DoubleSide,transparent:true,opacity:.92,depthWrite:false}));
-  ringMesh.rotation.x=Math.PI*.4; ringMesh.rotation.z=.15;
-  ringMesh.position.copy(sat.position); scene.add(ringMesh);
-
-  const uranusTex = planetTex('uranus.jpg');
-  const uranus = new THREE.Mesh(new THREE.SphereGeometry(2.4,64,64), new THREE.MeshPhongMaterial({map:uranusTex,shininess:42,specular:new THREE.Color(.08,.18,.22),emissive:new THREE.Color(0x030c10),emissiveMap:uranusTex,emissiveIntensity:.1}));
-  uranus.position.set(90,-8,-185); scene.add(uranus);
-
-  const neptuneTex = planetTex('neptune.jpg');
-  const neptune = new THREE.Mesh(new THREE.SphereGeometry(2.1,64,64), new THREE.MeshPhongMaterial({map:neptuneTex,shininess:48,specular:new THREE.Color(.06,.1,.28),emissive:new THREE.Color(0x02050e),emissiveMap:neptuneTex,emissiveIntensity:.1}));
-  neptune.position.set(-120,-20,-240); scene.add(neptune);
-
-  // ── ASTEROID BELT ─────────────────────────────────────
-  {
-    const g=new THREE.BufferGeometry(),p=new Float32Array(1200*3);
-    for(let i=0;i<1200;i++){
-      const t2=Math.random()*Math.PI*2,r=52+Math.random()*26;
-      p[i*3]=r*Math.cos(t2)-44; p[i*3+1]=(Math.random()-.5)*6+12; p[i*3+2]=r*Math.sin(t2)*.38-88;
-    }
-    g.setAttribute('position',new THREE.BufferAttribute(p,3));
-    scene.add(new THREE.Points(g,new THREE.PointsMaterial({size:.085,color:0x998877,transparent:true,opacity:.38,depthWrite:false})));
-  }
-
-  // ── 4D TEMPORAL WAVE SHADER ───────────────────────────
-  const w4dGeo = new THREE.SphereGeometry(eR*1.08,64,64);
-  const w4dMat = new THREE.ShaderMaterial({
-    transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.FrontSide,
-    uniforms:{time:{value:0},w4:{value:0},opacity:{value:.0}},
-    vertexShader:`
-      uniform float time;uniform float w4;varying float vW4;varying vec3 vNorm;
-      void main(){
-        vNorm=normalize(normalMatrix*normal);
-        float phi=atan(position.y,position.x);float theta=asin(position.z/length(position));
-        float w4proj=sin(phi*3.0+theta*2.0+time*.6)*cos(w4*1.8+time*.35)*.012;
-        vec3 displaced=position*(1.0+w4proj);vW4=w4proj;
-        gl_Position=projectionMatrix*modelViewMatrix*vec4(displaced,1.0);
-      }`,
-    fragmentShader:`
-      uniform float opacity;varying float vW4;varying vec3 vNorm;
-      void main(){
-        float fresnel=pow(1.0-abs(dot(vNorm,vec3(0.0,0.0,1.0))),3.2);
-        float col4d=vW4*80.0+0.5;
-        vec3 c=mix(vec3(.12,.48,1.),vec3(.8,.3,1.),col4d)*fresnel;
-        gl_FragColor=vec4(c,fresnel*opacity*.55);
-      }`,
-  });
-  const w4dMesh = new THREE.Mesh(w4dGeo,w4dMat);
-  w4dMesh.position.copy(earth.position); scene.add(w4dMesh);
-
-  // ── INPUT TRACKING ───────────────────────────────────
-  const mouse={x:0,y:0,tx:0,ty:0,vx:0,vy:0};
-
-  // Deteksi touch device (lebih andal dari lebar layar)
-  const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-
-  // ── DESKTOP: mouse ────────────────────────────────────
-  if(!isTouchDevice){
-    document.addEventListener('mousemove',e=>{
-      mouse.tx=(e.clientX/innerWidth-.5)*2;
-      mouse.ty=(e.clientY/innerHeight-.5)*2;
-    });
-  }
-
-  // ── MOBILE: gyroscope only, NO touch drag ─────────────
-  let gyroBaseBeta=null, gyroBaseGamma=null;
-  let gyroReady=false;
-
-  function handleOrientation(e){
-    const beta  = e.beta  ?? 0;  // tilt maju-mundur
-    const gamma = e.gamma ?? 0;  // tilt kiri-kanan
-
-    // Kalibrasi: snapshot posisi pegang HP pertama kali
-    if(gyroBaseBeta===null){
-      gyroBaseBeta  = beta;
-      gyroBaseGamma = gamma;
-      gyroReady = true;
-    }
-
-    // Delta dari baseline, clamp ±40° horizontal, ±25° vertikal
-    const dx = Math.max(-40, Math.min(40, gamma - gyroBaseGamma));
-    const dy = Math.max(-25, Math.min(25, beta  - gyroBaseBeta ));
-
-    // Map ke -1..1 dengan sedikit dead-zone di tengah
-    mouse.tx = Math.sign(dx) * Math.max(0, Math.abs(dx/40) - 0.03);
-    mouse.ty = Math.sign(dy) * Math.max(0, Math.abs(dy/25) - 0.03);
-  }
-
-  function startGyro(){
-    if(typeof DeviceOrientationEvent === 'undefined') return;
-    if(typeof DeviceOrientationEvent.requestPermission === 'function'){
-      // iOS 13+ — butuh user gesture
-      DeviceOrientationEvent.requestPermission()
-        .then(s=>{ if(s==='granted') window.addEventListener('deviceorientation', handleOrientation, {passive:true}); })
-        .catch(()=>{});
-    } else {
-      // Android & semua browser lain
-      window.addEventListener('deviceorientation', handleOrientation, {passive:true});
-    }
-  }
-
-  if(isTouchDevice){
-    // Langsung coba daftar; iOS13+ perlu gesture jadi wrap di touchstart sekali
-    if(typeof DeviceOrientationEvent !== 'undefined' &&
-       typeof DeviceOrientationEvent.requestPermission === 'function'){
-      document.addEventListener('touchstart', ()=>startGyro(), {once:true, passive:true});
-    } else {
-      startGyro();
-    }
-    // TIDAK ada touchmove → kamera tidak bergerak dari tap/drag
-  }
-
-  // Reset baseline saat orientasi layar berputar
-  window.addEventListener('orientationchange', ()=>{
-    setTimeout(()=>{ gyroBaseBeta=null; gyroBaseGamma=null; }, 300);
-  });
-
-  // ── ANIMATION LOOP ────────────────────────────────────
-  let T=0;
-  let earthBase=earth.position.clone();
-  const moonOrbit={a:24,speed:.006,phase:Math.PI*.3};
-  const ang4D={xw:0,yw:0,zw:0};
-  window.addEventListener('resize',()=>{earthBase=earth.position.clone();});
-
-  (function tick(){
+  function tick(now) {
     requestAnimationFrame(tick);
-    T+=.0042;
-    mouse.vx+=(mouse.tx-mouse.x)*.08;mouse.vy+=(mouse.ty-mouse.y)*.08;
-    mouse.vx*=.78;mouse.vy*=.78;mouse.x+=mouse.vx;mouse.y+=mouse.vy;
-    ang4D.xw+=.0007;ang4D.yw+=.00045+mouse.vx*.004;ang4D.zw+=.00032+mouse.vy*.003;
-    const w4val=Math.sin(ang4D.xw)*Math.cos(ang4D.yw)+Math.cos(ang4D.zw)*.4;
-    w4dMat.uniforms.time.value=T;w4dMat.uniforms.w4.value=w4val;
-    w4dMat.uniforms.opacity.value=.18+Math.abs(w4val)*.22;
-    w4dMesh.position.copy(earth.position);w4dMesh.rotation.y=earth.rotation.y*.6;
-    earth.rotation.y+=.0014;earth.rotation.z=.4;
-    moonOrbit.phase+=moonOrbit.speed;
-    const moonInc=Math.sin(ang4D.zw*1.6)*.18;
-    moon.position.set(
-      earthBase.x+Math.cos(moonOrbit.phase)*moonOrbit.a*.9,
-      earthBase.y+Math.sin(moonOrbit.phase*.7)*2.2+moonInc*2.8,
-      earthBase.z+Math.sin(moonOrbit.phase)*moonOrbit.a*.55
-    );
-    moon.rotation.y=moonOrbit.phase*.28;
-    earthFill.intensity=.5+Math.sin(T*.8+ang4D.xw)*.12;
-    mercury.rotation.y+=.0024;mars.rotation.y+=.0018;jup.rotation.y+=.003;
-    sat.rotation.y+=.0022;ringMesh.rotation.z+=.00018;ven.rotation.y+=.0008;
-    uranus.rotation.y+=.0014;neptune.rotation.y+=.001;sun.rotation.y+=.0003;
-    const sp=1+Math.sin(T*.88)*.016+Math.sin(T*2.28)*.007+Math.sin(T*5.1)*.003;
-    sun.scale.setScalar(sp);
-    const px4=mouse.x*.06+Math.sin(ang4D.yw)*.004;
-    scene.rotation.y+=(px4-scene.rotation.y)*.06;
-    // Tilt vertikal dari gyro juga gerakkan scene sedikit
-    scene.rotation.x+=(mouse.y*0.025 - scene.rotation.x)*.04;
-    const baseCamZ=isTouchDevice?34:42;
-    camera.position.z=baseCamZ+Math.sin(T*.35)*.5+Math.sin(T*.11+ang4D.zw)*.18;
-    renderer.render(scene,camera);
-  })();
+    const dt = Math.min(.05, (now - last) / 1000); last = now; T += dt;
 
-  // ── RESPONSIVE LAYOUT ─────────────────────────────────
-  function applyMobileLayout(){
-    const mobile=isTouchDevice;
-    if(mobile){
-      camera.fov=62;scene.position.set(1.2,1.5,0);
-      earth.position.set(18,-14,-8);sun.position.set(-80,38,-160);
-      mercury.position.set(28,20,-55);ven.position.set(-52,22,-80);
-      mars.position.set(-22,12,-48);jup.position.set(-42,8,-78);
-      sat.position.set(44,20,-100);ringMesh.position.copy(sat.position);
-      uranus.position.set(62,-5,-130);neptune.position.set(-85,-14,-170);
-      earthFill.position.copy(earth.position);
-    } else {
-      camera.fov=48;scene.position.set(0,0,0);
-      earth.position.set(34,-24,-10);sun.position.set(-120,55,-200);
-      mercury.position.set(40,30,-78);ven.position.set(-75,32,-115);
-      mars.position.set(-32,18,-65);jup.position.set(-60,12,-110);
-      sat.position.set(65,28,-145);ringMesh.position.copy(sat.position);
-      uranus.position.set(90,-8,-185);neptune.position.set(-120,-20,-240);
-      earthFill.position.copy(earth.position);
+    // kamera: kecepatan mengendur kembali ke putaran pelan
+    if (!dragging) {
+      az += azVel * dt;
+      azVel += (AUTO_SPEED - azVel) * (1 - Math.exp(-dt * 1.4));
     }
-    scene.children.forEach(obj=>{
-      if(obj.isMesh&&obj.material&&obj.material.blending===THREE.AdditiveBlending
-        &&obj!==earth&&obj.geometry&&obj.geometry.type==='SphereGeometry'){
-        obj.position.copy(earth.position);
-      }
+    placeCamera();
+
+    // planet: mengitari Matahari + berotasi pada sumbunya
+    bodies.forEach(b => {
+      b.L += b.w * dt;
+      b.holder.position.set(Math.cos(b.L) * b.R, 0, -Math.sin(b.L) * b.R);
+      b.mesh.rotation.y += b.spinW * dt;
     });
-    sunLight.position.copy(sun.position);
-    camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();
-    renderer.setSize(innerWidth,innerHeight);
+    belt.rotation.y += beltW * dt;
+
+    // Bumi: Bulan & efek gelombang 4D
+    if (earthBody) {
+      earthBody.moonPivot.rotation.y += earthBody.moonW * dt;
+      const w4val = Math.sin(T * .05) * Math.cos(T * .03) + Math.cos(T * .02) * .4;
+      earthBody.w4dMat.uniforms.time.value = T;
+      earthBody.w4dMat.uniforms.w4.value = w4val;
+      earthBody.w4dMat.uniforms.opacity.value = .18 + Math.abs(w4val) * .22;
+      earthBody.w4dMesh.rotation.y = earthBody.mesh.rotation.y * .6;
+    }
+
+    // Matahari: rotasi sangat lambat + napas halus
+    sun.rotation.y += (Math.PI * 2 / 600) * dt;
+    const pulse = 1 + Math.sin(T * .88) * .012 + Math.sin(T * 2.28) * .005;
+    sun.scale.setScalar(pulse);
+    halo1.material.opacity = .92 + Math.sin(T * .9) * .08;
+
+    renderer.render(scene, camera);
   }
-  window.addEventListener('resize',applyMobileLayout);
-  applyMobileLayout();
+  requestAnimationFrame(tick);
 }
 
 // ─── KICK OFF ─────────────────────────────────────────
