@@ -533,7 +533,7 @@ function __onConfigLoaded() {
   <nav class="links dock dock-right" id="linksRight"></nav>
 </div>
 
-<p class="hint">◂ &nbsp; Move to orbit the Sun &nbsp; ▸</p>
+<p class="hint">◂ &nbsp; Drag to orbit · Scroll or pinch to zoom &nbsp; ▸</p>
 <p class="footer" id="footerEl">⁝ &nbsp; @robertusdanan &nbsp; ⁝</p>
 
 <!-- MODAL -->
@@ -1170,10 +1170,33 @@ function initThree() {
   let azVel = AUTO_SPEED;      // kecepatan sudut (rad/detik)
   let camBreath = 0;           // "napas" jarak sangat halus agar terasa hidup (bukan gerak naik/turun)
 
+  // ── ZOOM: jarak kamera dari Matahari, dalam skala logaritmik (terasa merata saat dekat maupun jauh).
+  //    Batas lunak: boleh "ditarik" sedikit melewati batas dengan perlawanan, lalu kembali pelan seperti karet.
+  const ZOOM_MIN  = 108;                          // paling dekat: tepat di luar orbit Mars, Matahari tampak besar
+  const ZOOM_MAX  = 330;                          // paling jauh: seluruh orbit Neptunus masih muat di layar
+  const LN_MIN    = Math.log(ZOOM_MIN), LN_MAX = Math.log(ZOOM_MAX);
+  const ZOOM_OVER = 0.07;                         // seberapa jauh (log) boleh melewati batas saat ditarik
+  let lz = Math.log(CAM_RADIUS);                  // nilai yang sedang tampil
+  let lzGoal = lz;                                // nilai tujuan
+  let lastZoomInput = -1e9, pinching = false;
+
+  function zoomBy(dl) {                           // dl > 0 = menjauh, dl < 0 = mendekat
+    const g = lzGoal;
+    const outward = (g > LN_MAX && dl > 0) || (g < LN_MIN && dl < 0);
+    if (outward) {                                // makin jauh melewati batas, makin berat
+      const o = g > LN_MAX ? g - LN_MAX : LN_MIN - g;
+      dl *= Math.max(0.04, 1 - o / ZOOM_OVER);
+    }
+    lzGoal = clamp(g + dl, LN_MIN - ZOOM_OVER, LN_MAX + ZOOM_OVER);
+    lastZoomInput = performance.now();
+    document.body.classList.add('dragged');
+  }
   function placeCamera() {
-    const r = CAM_RADIUS + camBreath;
-    camera.position.set(Math.cos(az) * r, CAM_HEIGHT, Math.sin(az) * r);   // tinggi konstan → tak bisa naik/turun
-    camera.lookAt(0, 0, 0);                                                // Matahari selalu di tengah layar
+    const R = Math.exp(lz);
+    const r = R + camBreath;
+    const h = CAM_HEIGHT * (R / CAM_RADIUS);      // sudut pandang tetap sama di semua level zoom
+    camera.position.set(Math.cos(az) * r, h, Math.sin(az) * r);
+    camera.lookAt(0, 0, 0);                       // Matahari selalu di tengah layar
   }
 
   function layout() {
@@ -1241,14 +1264,37 @@ function initThree() {
   // ── Input: geser horizontal (mouse/touch), roda horizontal, tombol panah ──
   let dragging = false, dragId = null, lastX = 0, lastT = 0, dragVel = 0;
 
+  const ptrs = new Map();                        // jari/pointer aktif → untuk pinch-zoom
+  let pinchD0 = 1, pinchL0 = 0;
+
   document.addEventListener('pointerdown', e => {
     if (e.button !== undefined && e.button !== 0) return;
     if (e.target.closest && e.target.closest('.link-btn, button, a, .overlay, .close-btn')) return;
+    ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (ptrs.size === 2) {                       // dua jari → pinch, hentikan geser orbit
+      dragging = false; document.body.classList.remove('dragging');
+      pinching = true; azVel = 0;
+      const [a, b] = [...ptrs.values()];
+      pinchD0 = Math.hypot(a.x - b.x, a.y - b.y) || 1; pinchL0 = lzGoal;
+      document.body.classList.add('dragged');
+      return;
+    }
+    if (ptrs.size > 2) return;
     document.body.classList.add('dragged');
     dragging = true; dragId = e.pointerId; lastX = e.clientX; lastT = performance.now(); dragVel = 0; azVel = 0;
     document.body.classList.add('dragging');
   });
   window.addEventListener('pointermove', e => {
+    const pt = ptrs.get(e.pointerId);
+    if (pt) { pt.x = e.clientX; pt.y = e.clientY; }
+    if (pinching) {
+      if (ptrs.size >= 2) {
+        const [a, b] = [...ptrs.values()];
+        const d = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+        zoomBy((pinchL0 - Math.log(d / pinchD0)) - lzGoal);   // jari merenggang → mendekat
+      }
+      return;
+    }
     if (!dragging || e.pointerId !== dragId) return;
     const now = performance.now(), dt = Math.max(1, now - lastT) / 1000;
     const dAz = (e.clientX - lastX) / innerWidth * DRAG_GAIN;      // geser kanan → kamera berputar ke kiri (seperti "menggenggam" dunia)
@@ -1263,15 +1309,27 @@ function initThree() {
     document.body.classList.remove('dragging');
     azVel = gyroActive ? 0 : clamp(dragVel, -5, 5);                // inersia halus, lalu kembali ke putaran pelan
   }
-  window.addEventListener('pointerup', endDrag);
-  window.addEventListener('pointercancel', endDrag);
+  function onPointerEnd(e) {
+    ptrs.delete(e.pointerId);
+    if (pinching) { if (ptrs.size < 2) pinching = false; return; }
+    endDrag(e);
+  }
+  window.addEventListener('pointerup', onPointerEnd);
+  window.addEventListener('pointercancel', onPointerEnd);
 
   window.addEventListener('wheel', e => {
+    if (document.getElementById('overlay').classList.contains('open')) return;
     if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
       const dAz = -e.deltaX * .0015;
       az += dAz; if (gyroActive) gyroBase += dAz;
+    } else {
+      e.preventDefault();                          // roda / pinch trackpad = zoom, bukan zoom halaman
+      const unit = e.deltaMode === 1 ? 16 : 1;
+      const k = e.ctrlKey ? 0.012 : 0.0012;        // pinch trackpad mengirim ctrlKey + delta kecil
+      zoomBy(clamp(e.deltaY * unit, -120, 120) * k);
     }
-  }, { passive: true });
+  }, { passive: false });
+
 
   window.addEventListener('keydown', e => {
     if (document.getElementById('overlay').classList.contains('open')) return;
@@ -1301,6 +1359,13 @@ function initThree() {
       }
     }
     camBreath = Math.sin(T * .22) * 1.8;
+
+    // zoom: kembali lembut dari batas (efek karet) saat input berhenti, lalu geser halus ke tujuan
+    if (!pinching && now - lastZoomInput > 160) {
+      const b = clamp(lzGoal, LN_MIN, LN_MAX);
+      lzGoal += (b - lzGoal) * (1 - Math.exp(-dt * 7));
+    }
+    lz += (lzGoal - lz) * (1 - Math.exp(-dt * 9));
     placeCamera();
 
     // bintang berkelip halus
