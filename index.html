@@ -462,43 +462,7 @@ body.dragged .hint { opacity:0 !important; animation:none; }
 </head>
 <body>
 
-<!-- Secrets di-load dari config.js yang di-generate GitHub Actions -->
-<script>
-// Flag global — di-set true setelah config.js selesai load
-window.__configReady = false;
-window.__configCallback = null;
 
-function __onConfigLoaded() {
-  window.__configReady = true;
-  if (typeof window.__configCallback === 'function') {
-    window.__configCallback();
-  }
-}
-
-(function() {
-  var base = window.location.pathname.replace(/\/[^/]*$/, '/');
-
-  function loadScript(src, onSuccess, onFail) {
-    var s = document.createElement('script');
-    s.src = src;
-    s.onload = onSuccess;
-    s.onerror = onFail;
-    document.head.appendChild(s);
-  }
-
-  loadScript(
-    base + 'config.js',
-    __onConfigLoaded,
-    function() {
-      console.warn('[config] Gagal dari: ' + base + 'config.js, coba root...');
-      loadScript('/config.js', __onConfigLoaded, function() {
-        console.warn('[config] Gagal juga dari root — pakai fallback');
-        __onConfigLoaded();
-      });
-    }
-  );
-})();
-</script>
 
 <canvas id="cosmos"></canvas>
 <div class="noise"></div>
@@ -559,12 +523,10 @@ function __onConfigLoaded() {
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
+// DATA — dibaca dari file statis di repo (data/*.json, assets/*)
 // ═══════════════════════════════════════════════════════
-// CONFIG — dibaca dari window.APP_CONFIG (di-inject GitHub Actions)
-// ═══════════════════════════════════════════════════════
-// Nilai diisi setelah event 'configready' (tunggu config.js selesai load)
-let SUPABASE_URL  = '';
-let SUPABASE_ANON = '';
+const DATA_BASE  = 'data/';
+const ASSET_BASE = 'assets/';
 
 // ─── FALLBACK DATA ────────────────────────────────────
 const FALLBACK_PROFILE = {
@@ -578,21 +540,15 @@ const FALLBACK_LINKS = [
   { id:'3', label:'GitHub',    sub:'robertusdanan',         url:'https://github.com/robertusdanan',        domain:'github.com/robertusdanan',     desc:'Jelajahi proyek open-source.',       btn:'Buka GitHub',      type:'github',    custom_icon:null },
 ];
 
-// ─── SUPABASE FETCH ───────────────────────────────────
-async function sbGet(table, query = '') {
-  if (!SUPABASE_URL || !SUPABASE_ANON) return null;
+// ─── LOAD JSON ────────────────────────────────────────
+async function loadJSON(file) {
   try {
-    const url = `${SUPABASE_URL}/rest/v1/${table}${query ? '?' + query : ''}`;
-    const res = await fetch(url, {
-      headers: {
-        'apikey': SUPABASE_ANON,
-        'Authorization': `Bearer ${SUPABASE_ANON}`,
-        'Accept': 'application/json',
-      },
+    const res = await fetch(DATA_BASE + file + '?v=' + Date.now(), {
+      cache: 'no-cache',
       signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return null;
-    return res.json();
+    return await res.json();
   } catch { return null; }
 }
 
@@ -630,7 +586,7 @@ function iconSmall(link, idx) {
 // ─── RENDER FUNCTIONS ─────────────────────────────────
 let LINKS = [];
 
-function renderProfile(profile, avatarType, avatarB64) {
+function renderProfile(profile, avatarSrc) {
   const parts = profile.name.split(' ');
   const first = parts[0];
   const rest  = parts.slice(1).join(' ');
@@ -641,9 +597,11 @@ function renderProfile(profile, avatarType, avatarB64) {
   document.getElementById('footerEl').innerHTML =
     `⁝ &nbsp; ${profile.handle} &nbsp; ⁝`;
 
-  if (avatarB64 && avatarB64 !== 'empty') {
-    document.getElementById('avatarEl').innerHTML =
-      `<img src="data:image/${avatarType};base64,${avatarB64}" alt="${profile.name}"/>`;
+  if (avatarSrc) {
+    const img = document.createElement('img');
+    img.alt = profile.name;
+    img.src = avatarSrc;
+    img.onload = () => { const el = document.getElementById('avatarEl'); el.textContent = ''; el.appendChild(img); };
   }
 }
 
@@ -666,66 +624,48 @@ function renderLinks(links) {
 
 // ─── MAIN INIT ────────────────────────────────────────
 async function init() {
-  // Fetch profile
-  const profileRows = await sbGet('profile', 'limit=1');
-  let profile, avatarType = 'jpeg', avatarB64 = 'empty';
-
-  if (profileRows && profileRows[0]) {
-    const row = profileRows[0];
-    profile    = {
-      name:    row.name    || 'Robertus Danan',
-      handle:  row.handle  || '@robertusdanan',
-      tagline: row.tagline || 'Creator · Developer · Dreamer',
+  // Profil
+  const row = await loadJSON('profile.json');
+  let profile, avatarSrc = null;
+  if (row) {
+    profile = {
+      name:    row.name    || FALLBACK_PROFILE.name,
+      handle:  row.handle  || FALLBACK_PROFILE.handle,
+      tagline: row.tagline || FALLBACK_PROFILE.tagline,
     };
-    avatarType = row.avatar_type || 'jpeg';
-    avatarB64  = row.avatar_data  || 'empty';
+    if (row.avatar) avatarSrc = ASSET_BASE + row.avatar.replace(/^\//, '');
   } else {
     profile = FALLBACK_PROFILE;
   }
-  renderProfile(profile, avatarType, avatarB64);
+  renderProfile(profile, avatarSrc);
 
-  // Fetch links
-  const linkRows = await sbGet('link_cards', 'is_active=eq.true&order=sort_order.asc');
-  let links = [];
-
-  if (linkRows && linkRows.length) {
-    links = linkRows.map(lr => {
-      const icon_type = lr.icon_type || 'custom';
-      let custom_icon_src = null;
-      if (icon_type === 'custom' && lr.icon_data) {
-        if (lr.icon_data.length < 256) {
-          custom_icon_src = `${SUPABASE_URL}/storage/v1/object/public/media/${lr.icon_data.replace(/^\//, '')}`;
-        } else {
-          const mime = lr.icon_mime || 'png';
-          custom_icon_src = `data:image/${mime};base64,${lr.icon_data}`;
-        }
-      }
-      return {
-        id:          String(lr.id || ''),
-        label:       lr.label        || '',
-        sub:         lr.sub          || '',
-        url:         lr.url          || '#',
-        domain:      lr.domain       || '',
-        desc:        lr.description  || '',
-        btn:         lr.btn_label    || 'Buka Halaman',
-        type:        icon_type,
-        custom_icon: custom_icon_src,
-      };
-    });
-  } else {
-    links = FALLBACK_LINKS;
+  // Link
+  const linkRows = await loadJSON('links.json');
+  let links = FALLBACK_LINKS;
+  if (Array.isArray(linkRows)) {
+    const active = linkRows
+      .filter(lr => lr.is_active !== false)
+      .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+    if (active.length) {
+      links = active.map(lr => {
+        const icon_type = lr.icon_type || 'custom';
+        return {
+          id:          String(lr.id || ''),
+          label:       lr.label       || '',
+          sub:         lr.sub         || '',
+          url:         lr.url         || '#',
+          domain:      lr.domain      || '',
+          desc:        lr.description || '',
+          btn:         lr.btn_label   || 'Buka Halaman',
+          type:        icon_type,
+          custom_icon: (icon_type === 'custom' && lr.icon) ? ASSET_BASE + lr.icon.replace(/^\//, '') : null,
+        };
+      });
+    }
   }
   renderLinks(links);
 
-  // DNS prefetch textures setelah kita tahu SUPABASE_URL
-  if (SUPABASE_URL) {
-    const texHost = new URL(SUPABASE_URL).hostname;
-    const link1 = document.createElement('link');
-    link1.rel = 'preconnect'; link1.href = `https://${texHost}`;
-    document.head.appendChild(link1);
-  }
-
-  // Init 3D background setelah data siap
+  // Latar 3D
   initThree();
 }
 
@@ -757,9 +697,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal()
 // Kontrol: geser layar / roda horizontal / tombol panah / GYROSCOPE (otomatis di HP).
 // ═══════════════════════════════════════════════════════
 function initThree() {
-  const TEX_BASE = SUPABASE_URL
-    ? `${SUPABASE_URL.replace(/\/$/, '')}/storage/v1/object/public/textures/`
-    : '';
+  const TEX_BASE = ASSET_BASE + 'textures/';
 
   const deg  = d => d * Math.PI / 180;
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
@@ -829,7 +767,6 @@ function initThree() {
 
   // Material dimulai dengan warna cadangan; tekstur dipasang saat berhasil dimuat.
   function applyTex(mat, file) {
-    if (!TEX_BASE) return;
     texLoader.load(TEX_BASE + file, t => {
       t.anisotropy = maxAniso;
       if (THREE.sRGBEncoding !== undefined) t.encoding = THREE.sRGBEncoding;
@@ -1405,31 +1342,7 @@ function initThree() {
 }
 
 // ─── KICK OFF ─────────────────────────────────────────
-// Gunakan flag + callback — anti race condition
-function __startApp() {
-  const CFG2 = window.APP_CONFIG || {};
-  SUPABASE_URL  = CFG2.SUPABASE_URL  || '';
-  SUPABASE_ANON = CFG2.SUPABASE_ANON || '';
-
-  console.group('[Profil Config]');
-  console.log('APP_CONFIG loaded:', !!window.APP_CONFIG);
-  console.log('SUPABASE_URL:', SUPABASE_URL ? SUPABASE_URL.replace(/\/\/.*\.supabase/, '//[hidden].supabase') : '❌ KOSONG');
-  console.log('SUPABASE_ANON:', SUPABASE_ANON ? '✅ ada (' + SUPABASE_ANON.length + ' karakter)' : '❌ KOSONG');
-  if (!SUPABASE_URL || !SUPABASE_ANON) {
-    console.warn('Config belum terisi — pakai fallback data.');
-  }
-  console.groupEnd();
-
-  init();
-}
-
-// Kalau config.js sudah selesai load sebelum script ini jalan → langsung start
-// Kalau belum → pasang callback, nanti dipanggil oleh __onConfigLoaded()
-if (window.__configReady) {
-  __startApp();
-} else {
-  window.__configCallback = __startApp;
-}
+init();
 </script>
 </body>
 </html>

@@ -473,13 +473,17 @@ html, body {
       <p class="login-sub">Kelola profil dan link dari satu tempat.</p>
 
       <div class="field">
-        <label>Username</label>
-        <input type="text" id="loginUser" placeholder="username" autocomplete="username"/>
+        <label>GitHub Token</label>
+        <input type="password" id="loginToken" placeholder="github_pat_…" autocomplete="off"/>
       </div>
       <div class="field">
-        <label>Password</label>
-        <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password"/>
+        <label>Repository</label>
+        <input type="text" id="loginRepo" placeholder="robertusdanan/profile" autocomplete="off"/>
       </div>
+      <p style="font-size:.7rem;color:var(--muted,#7d8aa8);margin:-4px 0 14px;line-height:1.5;">
+        Token fine-grained dengan izin <b>Contents: Read and write</b> hanya untuk repo ini.
+        Disimpan di browser perangkat ini saja.
+      </p>
       <div id="loginErr" style="color:var(--danger);font-size:.75rem;margin-bottom:14px;display:none;"></div>
       <button class="btn btn-primary btn-full" id="loginBtn" onclick="doLogin()">
         Masuk
@@ -638,83 +642,86 @@ html, body {
 <!-- TOAST -->
 <div class="toast-container" id="toastContainer"></div>
 
-<!-- ══════════════════════════════════════════
-     LOAD CONFIG → THEN RUN APP
-══════════════════════════════════════════ -->
-<script>
-window.__configReady = false;
-window.__configCallback = null;
-
-function __onConfigLoaded() {
-  window.__configReady = true;
-  if (typeof window.__configCallback === 'function') window.__configCallback();
-}
-
-(function() {
-  var base = window.location.pathname.replace(/\/[^/]*$/, '/');
-  function loadScript(src, ok, fail) {
-    var s = document.createElement('script');
-    s.src = src; s.onload = ok; s.onerror = fail;
-    document.head.appendChild(s);
-  }
-  loadScript(base + 'config.js', __onConfigLoaded, function() {
-    loadScript('/config.js', __onConfigLoaded, function() { __onConfigLoaded(); });
-  });
-})();
-</script>
-
 <script>
 // ════════════════════════════════════════════
 // GLOBALS
 // ════════════════════════════════════════════
-let SB_URL          = '';
-let SB_SERVICE_ROLE = '';
-let SESSION_TOKEN = localStorage.getItem('admin_token') || '';
-let CURRENT_USER  = '';
-let iconBase64 = null;
-let iconMime   = 'png';
-let profileData = null;
+const API = 'https://api.github.com';
+const DATA_DIR  = 'data';
+const ASSET_DIR = 'assets';
+let GH_TOKEN  = '';
+let GH_REPO   = '';
+let GH_BRANCH = 'main';
+let CURRENT_USER = '';
+let iconFile = null;        // { b64, ext }
+let profileData = null;     // objek profile.json (+ _sha)
+let linksSha = null;
 let dragSrcIndex = null;
 let linkItems = [];
+const localPreview = {};    // path aset -> data URL (sebelum situs ter-deploy ulang)
+
+function store(k, v) { try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} }
+function load(k) { try { return localStorage.getItem(k) || ''; } catch { return ''; } }
 
 // ════════════════════════════════════════════
-// API HELPERS
+// GITHUB API HELPERS
 // ════════════════════════════════════════════
-async function sbFetch(path, method = 'GET', body = null, extraHeaders = {}) {
-  const headers = {
-    'apikey':        SB_SERVICE_ROLE,
-    'Authorization': `Bearer ${SB_SERVICE_ROLE}`,
-    'Content-Type':  'application/json',
-    'Accept':        'application/json',
-    ...extraHeaders,
-  };
-
-  const opts = { method, headers, signal: AbortSignal.timeout(8000) };
-  if (body) opts.body = JSON.stringify(body);
-
-  const res = await fetch(`${SB_URL}/rest/v1/${path}`, opts);
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || err.hint || `HTTP ${res.status}`);
-  }
+async function gh(path, method = 'GET', body = null) {
+  const res = await fetch(`${API}/${path}`, {
+    method,
+    headers: {
+      'Authorization': `Bearer ${GH_TOKEN}`,
+      'Accept': 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+      ...(body ? { 'Content-Type': 'application/json' } : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+    signal: AbortSignal.timeout(20000),
+  });
   const text = await res.text();
-  return text ? JSON.parse(text) : null;
+  const data = text ? JSON.parse(text) : null;
+  if (!res.ok) {
+    const e = new Error(data?.message || `HTTP ${res.status}`);
+    e.status = res.status;
+    throw e;
+  }
+  return data;
 }
 
-async function rpcFetch(fn, params) {
-  const res = await fetch(`${SB_URL}/rest/v1/rpc/${fn}`, {
-    method: 'POST',
-    headers: {
-      'apikey': SB_SERVICE_ROLE,
-      'Authorization': `Bearer ${SB_SERVICE_ROLE}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(params),
-    signal: AbortSignal.timeout(8000),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.message || data.hint || `HTTP ${res.status}`);
-  return data;
+const enc = p => p.split('/').map(encodeURIComponent).join('/');
+const b64ToUtf8 = b64 => new TextDecoder().decode(Uint8Array.from(atob(b64.replace(/\n/g, '')), c => c.charCodeAt(0)));
+const utf8ToB64 = str => {
+  const bytes = new TextEncoder().encode(str);
+  let bin = ''; bytes.forEach(b => bin += String.fromCharCode(b));
+  return btoa(bin);
+};
+
+// Baca file JSON dari repo → { data, sha } (atau { data: fallback, sha: null } kalau belum ada)
+async function readJSON(file, fallback) {
+  try {
+    const r = await gh(`repos/${GH_REPO}/contents/${enc(DATA_DIR + '/' + file)}?ref=${encodeURIComponent(GH_BRANCH)}`);
+    return { data: JSON.parse(b64ToUtf8(r.content)), sha: r.sha };
+  } catch (e) {
+    if (e.status === 404) return { data: fallback, sha: null };
+    throw e;
+  }
+}
+
+// Tulis file (base64) — satu commit per panggilan. Mengembalikan sha baru.
+async function putFile(path, contentB64, message, sha) {
+  const body = { message, content: contentB64, branch: GH_BRANCH };
+  if (sha) body.sha = sha;
+  const r = await gh(`repos/${GH_REPO}/contents/${enc(path)}`, 'PUT', body);
+  return r.content.sha;
+}
+async function writeJSON(file, obj, message, sha) {
+  return putFile(`${DATA_DIR}/${file}`, utf8ToB64(JSON.stringify(obj, null, 2) + '\n'), message, sha);
+}
+async function deleteFile(path, message) {
+  try {
+    const r = await gh(`repos/${GH_REPO}/contents/${enc(path)}?ref=${encodeURIComponent(GH_BRANCH)}`);
+    await gh(`repos/${GH_REPO}/contents/${enc(path)}`, 'DELETE', { message, sha: r.sha, branch: GH_BRANCH });
+  } catch {}
 }
 
 // ════════════════════════════════════════════
@@ -729,47 +736,38 @@ function toast(msg, type = 'info') {
 }
 
 // ════════════════════════════════════════════
-// AUTH
+// AUTH (token GitHub)
 // ════════════════════════════════════════════
+async function verifyAccess() {
+  const user = await gh('user');
+  const repo = await gh(`repos/${GH_REPO}`);
+  if (!repo.permissions || !repo.permissions.push) {
+    throw new Error('Token tidak punya izin tulis ke repo ini (butuh Contents: Read and write).');
+  }
+  GH_BRANCH = repo.default_branch || 'main';
+  CURRENT_USER = user.login;
+}
+
 async function doLogin() {
-  const user = document.getElementById('loginUser').value.trim();
-  const pass = document.getElementById('loginPass').value;
-  const errEl = document.getElementById('loginErr');
+  const token = document.getElementById('loginToken').value.trim();
+  const repo  = document.getElementById('loginRepo').value.trim().replace(/^https?:\/\/github\.com\//, '').replace(/\.git$/, '');
   const btn   = document.getElementById('loginBtn');
 
-  if (!user || !pass) { showLoginErr('Isi username dan password.'); return; }
+  if (!token || !/^[\w.-]+\/[\w.-]+$/.test(repo)) { showLoginErr('Isi token dan repo (format: pemilik/nama-repo).'); return; }
 
   btn.disabled = true;
-  btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;"></div> Masuk…';
-  errEl.style.display = 'none';
+  btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;"></div> Memeriksa…';
+  document.getElementById('loginErr').style.display = 'none';
 
+  GH_TOKEN = token; GH_REPO = repo;
   try {
-    // Hash password dengan SHA-256
-    const hashBuf  = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pass));
-    const hashHex  = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2,'0')).join('');
-
-    // Cari admin_user
-    const users = await sbFetch(`admin_users?username=eq.${encodeURIComponent(user)}&select=id,username,password_hash`);
-    if (!users || !users.length) throw new Error('Username atau password salah.');
-
-    const admin = users[0];
-    if (admin.password_hash !== hashHex) throw new Error('Username atau password salah.');
-
-    // Buat session
-    const token = crypto.randomUUID();
-    await sbFetch('admin_sessions', 'POST', {
-      token,
-      admin_id: admin.id,
-    }, { Prefer: 'return=minimal' });
-
-    SESSION_TOKEN = token;
-    CURRENT_USER  = admin.username;
-    localStorage.setItem('admin_token', token);
+    await verifyAccess();
+    store('gh_token', token); store('gh_repo', repo);
     enterApp();
-  } catch(e) {
-    showLoginErr(e.message);
-    btn.disabled = false;
-    btn.textContent = 'Masuk';
+  } catch (e) {
+    GH_TOKEN = '';
+    showLoginErr(e.status === 401 ? 'Token tidak valid / kedaluwarsa.' : e.message);
+    btn.disabled = false; btn.textContent = 'Masuk';
   }
 }
 
@@ -779,26 +777,8 @@ function showLoginErr(msg) {
   el.style.display = 'block';
 }
 
-async function checkSession() {
-  if (!SESSION_TOKEN) return false;
-  try {
-    const rows = await sbFetch(
-      `admin_sessions?token=eq.${SESSION_TOKEN}&select=admin_id,expires_at,admin_users(username)&limit=1`
-    );
-    if (!rows || !rows.length) return false;
-    if (new Date(rows[0].expires_at) < new Date()) {
-      await sbFetch(`admin_sessions?token=eq.${SESSION_TOKEN}`, 'DELETE');
-      return false;
-    }
-    CURRENT_USER = rows[0].admin_users?.username || '';
-    return true;
-  } catch { return false; }
-}
-
-async function doLogout() {
-  try { await sbFetch(`admin_sessions?token=eq.${SESSION_TOKEN}`, 'DELETE'); } catch {}
-  SESSION_TOKEN = '';
-  localStorage.removeItem('admin_token');
+function doLogout() {
+  store('gh_token', null);
   location.reload();
 }
 
@@ -813,32 +793,18 @@ function enterApp() {
 }
 
 async function startApp() {
-  const cfg = window.APP_CONFIG || {};
-  SB_URL          = cfg.SUPABASE_URL          || '';
-  SB_SERVICE_ROLE = cfg.SUPABASE_SERVICE_ROLE || '';
+  document.getElementById('loginRepo').value = load('gh_repo') || 'robertusdanan/profile';
+  document.getElementById('loginToken').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+  document.getElementById('loginRepo').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 
-  if (!SB_URL || !SB_SERVICE_ROLE) {
-    toast('Config Supabase tidak ditemukan. Pastikan config.js sudah di-deploy.', 'error');
-    return;
+  const t = load('gh_token'), r = load('gh_repo');
+  if (t && r) {
+    GH_TOKEN = t; GH_REPO = r;
+    try { await verifyAccess(); enterApp(); }
+    catch { GH_TOKEN = ''; }
   }
-
-  // Enter keyboard submit on login
-  document.getElementById('loginPass').addEventListener('keydown', e => {
-    if (e.key === 'Enter') doLogin();
-  });
-  document.getElementById('loginUser').addEventListener('keydown', e => {
-    if (e.key === 'Enter') document.getElementById('loginPass').focus();
-  });
-
-  const valid = await checkSession();
-  if (valid) {
-    enterApp();
-  }
-  // else: login screen already visible
 }
-
-if (window.__configReady) { startApp(); }
-else { window.__configCallback = startApp; }
+startApp();
 
 // ════════════════════════════════════════════
 // TABS
@@ -857,29 +823,31 @@ function switchTab(tab, el) {
 async function loadProfile() {
   const panel = document.getElementById('profilePanel');
   try {
-    const rows = await sbFetch('profile?select=*&limit=1');
-    profileData = rows && rows[0] ? rows[0] : { id: null, name:'', handle:'', tagline:'', avatar_data: null, avatar_type:'jpeg' };
+    const { data, sha } = await readJSON('profile.json', { name:'', handle:'', tagline:'', avatar:null });
+    profileData = { ...data, _sha: sha };
     renderProfileForm(profileData);
   } catch(e) {
-    panel.innerHTML = `<div class="empty"><div class="empty-icon">⚠</div>Gagal memuat: ${e.message}</div>`;
+    panel.innerHTML = `<div class="empty"><div class="empty-icon">⚠</div>Gagal memuat: ${esc(e.message)}</div>`;
   }
+}
+
+function assetSrc(rel) {
+  return localPreview[rel] || `${ASSET_DIR}/${rel.replace(/^\//, '')}`;
 }
 
 function renderProfileForm(d) {
   const panel = document.getElementById('profilePanel');
-  const avatarSrc = d.avatar_data && d.avatar_data !== 'empty'
-    ? `data:image/${d.avatar_type || 'jpeg'};base64,${d.avatar_data}`
-    : null;
+  const avatarSrc = d.avatar ? assetSrc(d.avatar) : null;
 
   panel.innerHTML = `
     <div class="avatar-row">
       <div class="avatar-preview" id="avatarPreviewEl">
         ${avatarSrc
-          ? `<img src="${avatarSrc}" alt="avatar"/>`
+          ? `<img src="${esc(avatarSrc)}" alt="avatar"/>`
           : `<span class="avatar-initials">${getInitials(d.name)}</span>`}
       </div>
       <div class="avatar-info">
-        <p>Format: JPEG / PNG / WebP. Disimpan sebagai Base64 di Supabase.</p>
+        <p>Format: JPEG / PNG / WebP. Disimpan sebagai file di folder assets/ repo GitHub.</p>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           <button class="btn btn-outline btn-sm" onclick="document.getElementById('avatarFileInput').click()">Ganti Foto</button>
           ${avatarSrc ? `<button class="btn btn-danger btn-sm" onclick="clearAvatar()">Hapus Foto</button>` : ''}
@@ -905,8 +873,7 @@ function renderProfileForm(d) {
   `;
 }
 
-let newAvatarB64 = null;
-let newAvatarType = null;
+let newAvatar = null;   // { b64, ext } | 'remove' | null
 
 function onAvatarFile() {
   const file = document.getElementById('avatarFileInput').files[0];
@@ -915,25 +882,18 @@ function onAvatarFile() {
 
   const reader = new FileReader();
   reader.onload = e => {
-    const b64 = e.target.result.split(',')[1];
-    const mime = file.type.split('/')[1] || 'jpeg';
-    newAvatarB64  = b64;
-    newAvatarType = mime;
-
-    // Update preview
-    const prev = document.getElementById('avatarPreviewEl');
-    prev.innerHTML = `<img src="data:image/${mime};base64,${b64}" alt="avatar"/>`;
+    const ext = ({ 'image/jpeg':'jpg', 'image/png':'png', 'image/webp':'webp' })[file.type] || 'jpg';
+    newAvatar = { b64: e.target.result.split(',')[1], ext, dataUrl: e.target.result };
+    document.getElementById('avatarPreviewEl').innerHTML = `<img src="${e.target.result}" alt="avatar"/>`;
     toast('Foto dipilih — klik Simpan Profil untuk menyimpan.', 'info');
   };
   reader.readAsDataURL(file);
 }
 
 function clearAvatar() {
-  newAvatarB64  = 'empty';
-  newAvatarType = 'jpeg';
-  const prev = document.getElementById('avatarPreviewEl');
-  const name  = document.getElementById('pName').value;
-  prev.innerHTML = `<span class="avatar-initials">${getInitials(name)}</span>`;
+  newAvatar = 'remove';
+  const name = document.getElementById('pName').value;
+  document.getElementById('avatarPreviewEl').innerHTML = `<span class="avatar-initials">${getInitials(name)}</span>`;
 }
 
 async function saveProfile() {
@@ -943,24 +903,29 @@ async function saveProfile() {
 
   if (!name) { toast('Nama tidak boleh kosong.', 'error'); return; }
 
-  const payload = { name, handle, tagline };
-  if (newAvatarB64 !== null) {
-    payload.avatar_data = newAvatarB64;
-    payload.avatar_type = newAvatarType || 'jpeg';
-  }
-
   const btn = document.querySelector('[onclick="saveProfile()"]');
   btn.disabled = true; btn.textContent = 'Menyimpan…';
 
   try {
-    if (profileData && profileData.id) {
-      await sbFetch(`profile?id=eq.${profileData.id}`, 'PATCH', payload, { Prefer: 'return=minimal' });
-    } else {
-      await sbFetch('profile', 'POST', payload, { Prefer: 'return=minimal' });
+    const oldAvatar = profileData?.avatar || null;
+    let avatar = oldAvatar;
+
+    if (newAvatar === 'remove') {
+      avatar = null;
+    } else if (newAvatar) {
+      avatar = `avatar-${Date.now()}.${newAvatar.ext}`;
+      await putFile(`${ASSET_DIR}/${avatar}`, newAvatar.b64, 'admin: ganti foto profil');
+      localPreview[avatar] = newAvatar.dataUrl;
     }
-    toast('Profil berhasil disimpan!', 'success');
-    newAvatarB64 = null;
-    await loadProfile();
+
+    const obj = { name, handle, tagline, avatar };
+    const sha = await writeJSON('profile.json', obj, 'admin: update profil', profileData?._sha || null);
+    if (avatar !== oldAvatar && oldAvatar) await deleteFile(`${ASSET_DIR}/${oldAvatar}`, 'admin: hapus foto lama');
+
+    profileData = { ...obj, _sha: sha };
+    newAvatar = null;
+    toast('Tersimpan! Situs ter-update dalam ±1 menit.', 'success');
+    renderProfileForm(profileData);
   } catch(e) {
     toast('Gagal menyimpan: ' + e.message, 'error');
   } finally {
@@ -975,12 +940,19 @@ async function loadLinks() {
   const wrap = document.getElementById('linkListWrap');
   wrap.innerHTML = `<div class="loading-row"><div class="spinner"></div> Memuat…</div>`;
   try {
-    const rows = await sbFetch('link_cards?select=*&order=sort_order.asc');
-    linkItems = rows || [];
+    const { data, sha } = await readJSON('links.json', []);
+    linksSha = sha;
+    linkItems = (data || []).slice().sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
     renderLinks();
   } catch(e) {
-    wrap.innerHTML = `<div class="empty"><div class="empty-icon">⚠</div>Gagal memuat: ${e.message}</div>`;
+    wrap.innerHTML = `<div class="empty"><div class="empty-icon">⚠</div>Gagal memuat: ${esc(e.message)}</div>`;
   }
+}
+
+// Simpan seluruh daftar link dalam SATU commit
+async function persistLinks(message) {
+  linkItems.forEach((lk, i) => lk.sort_order = i);
+  linksSha = await writeJSON('links.json', linkItems, message, linksSha);
 }
 
 function renderLinks() {
@@ -1012,7 +984,7 @@ function renderLinks() {
         </span>
         <div class="link-actions">
           <button class="btn btn-outline btn-sm" onclick="openLinkModal(${i})">Edit</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteLink(${lk.id},${i})">Hapus</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteLink(${i})">Hapus</button>
         </div>
       </div>
     `).join('')
@@ -1023,11 +995,8 @@ function iconHTML(lk) {
   if (lk.icon_type === 'instagram') return `<svg width="20" height="20" viewBox="0 0 24 24"><defs><linearGradient id="ig${lk.id}" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#f09433"/><stop offset="50%" stop-color="#dc2743"/><stop offset="100%" stop-color="#bc1888"/></linearGradient></defs><path fill="url(#ig${lk.id})" d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>`;
   if (lk.icon_type === 'github') return `<svg width="18" height="18" viewBox="0 0 24 24" fill="rgba(160,191,255,0.9)"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>`;
   if (lk.icon_type === 'saweria') return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="#ff6b6b"/></svg>`;
-  if (lk.icon_data) {
-    const src = lk.icon_data.length < 256
-      ? `${SB_URL}/storage/v1/object/public/media/${lk.icon_data.replace(/^\//,'')}`
-      : `data:image/${lk.icon_mime||'png'};base64,${lk.icon_data}`;
-    return `<img src="${src}" alt="${esc(lk.label)}" style="width:22px;height:22px;object-fit:contain;"/>`;
+  if (lk.icon) {
+    return `<img src="${esc(assetSrc(lk.icon))}" alt="${esc(lk.label)}" style="width:22px;height:22px;object-fit:contain;"/>`;
   }
   return `<svg width="18" height="18" viewBox="0 0 24 24" fill="rgba(160,191,255,0.6)"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg>`;
 }
@@ -1054,20 +1023,18 @@ function onDrop(e, targetIdx) {
 
 async function saveSortOrder() {
   try {
-    await Promise.all(linkItems.map((lk, i) =>
-      sbFetch(`link_cards?id=eq.${lk.id}`, 'PATCH', { sort_order: i }, { Prefer: 'return=minimal' })
-    ));
-    linkItems.forEach((lk, i) => lk.sort_order = i);
+    await persistLinks('admin: ubah urutan link');
     toast('Urutan disimpan.', 'success');
     renderLinks();
   } catch(e) {
     toast('Gagal simpan urutan: ' + e.message, 'error');
+    loadLinks();
   }
 }
 
 // ── MODAL ADD/EDIT LINK ──
 function openLinkModal(idx) {
-  iconBase64 = null; iconMime = 'png';
+  iconFile = null;
 
   if (idx === null) {
     // New
@@ -1087,11 +1054,11 @@ function openLinkModal(idx) {
     document.getElementById('linkModalTitle').textContent = 'Edit Link';
     document.getElementById('fId').value      = lk.id;
     document.getElementById('fLabel').value   = lk.label;
-    document.getElementById('fSub').value     = lk.sub;
+    document.getElementById('fSub').value     = lk.sub || '';
     document.getElementById('fUrl').value     = lk.url;
-    document.getElementById('fDomain').value  = lk.domain;
-    document.getElementById('fBtn').value     = lk.btn_label;
-    document.getElementById('fDesc').value    = lk.description;
+    document.getElementById('fDomain').value  = lk.domain || '';
+    document.getElementById('fBtn').value     = lk.btn_label || 'Buka Halaman';
+    document.getElementById('fDesc').value    = lk.description || '';
     document.getElementById('fIconType').value = lk.icon_type || 'custom';
     document.getElementById('fSort').value    = lk.sort_order;
     document.getElementById('fActive').className = `toggle ${lk.is_active ? 'on' : ''}`;
@@ -1122,8 +1089,8 @@ function onIconFileChange() {
 
   const reader = new FileReader();
   reader.onload = e => {
-    iconBase64 = e.target.result.split(',')[1];
-    iconMime   = file.type.split('/')[1] || 'png';
+    const ext = ({ 'image/png':'png', 'image/jpeg':'jpg', 'image/webp':'webp', 'image/svg+xml':'svg' })[file.type] || 'png';
+    iconFile = { b64: e.target.result.split(',')[1], ext, dataUrl: e.target.result };
 
     document.getElementById('iconPreviewImg').src = e.target.result;
     document.getElementById('iconFileName').textContent  = file.name;
@@ -1134,7 +1101,7 @@ function onIconFileChange() {
 }
 
 function clearIcon() {
-  iconBase64 = null;
+  iconFile = null;
   document.getElementById('fIconFile').value = '';
   document.getElementById('iconPreviewWrap').style.display = 'none';
 }
@@ -1153,41 +1120,55 @@ async function saveLink() {
 
   if (!label) { toast('Label tidak boleh kosong.', 'error'); return; }
   if (!url)   { toast('URL tidak boleh kosong.', 'error'); return; }
-
-  const payload = { label, sub, url, domain, btn_label, description, icon_type, sort_order, is_active };
-  if (icon_type === 'custom' && iconBase64) {
-    payload.icon_data = iconBase64;
-    payload.icon_mime = iconMime;
-  }
+  if (!/^(https?:|mailto:|tel:)/i.test(url)) { toast('URL harus diawali https://, http://, mailto: atau tel:', 'error'); return; }
 
   const btn = document.getElementById('saveLinkBtn');
   btn.disabled = true; btn.textContent = 'Menyimpan…';
 
   try {
-    if (id) {
-      await sbFetch(`link_cards?id=eq.${id}`, 'PATCH', payload, { Prefer: 'return=minimal' });
-    } else {
-      await sbFetch('link_cards', 'POST', payload, { Prefer: 'return=minimal' });
+    const existing = id ? linkItems.find(l => String(l.id) === String(id)) : null;
+    const entry = {
+      id: existing ? existing.id : Date.now(),
+      label, sub, url, domain, btn_label, description, icon_type, sort_order, is_active,
+      icon: existing ? (existing.icon || null) : null,
+    };
+
+    const oldIcon = entry.icon;
+    if (icon_type !== 'custom') entry.icon = null;
+    if (icon_type === 'custom' && iconFile) {
+      entry.icon = `icons/${entry.id}-${Date.now()}.${iconFile.ext}`;
+      await putFile(`${ASSET_DIR}/${entry.icon}`, iconFile.b64, `admin: ikon link "${label}"`);
+      localPreview[entry.icon] = iconFile.dataUrl;
     }
-    toast(id ? 'Link diperbarui!' : 'Link ditambahkan!', 'success');
+
+    if (existing) Object.assign(existing, entry); else linkItems.push(entry);
+    linkItems.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+    await persistLinks(existing ? `admin: edit link "${label}"` : `admin: tambah link "${label}"`);
+    if (oldIcon && oldIcon !== entry.icon) await deleteFile(`${ASSET_DIR}/${oldIcon}`, 'admin: hapus ikon lama');
+
+    toast(id ? 'Link diperbarui! Situs ter-update ±1 menit.' : 'Link ditambahkan! Situs ter-update ±1 menit.', 'success');
     closeLinkModal();
-    await loadLinks();
+    renderLinks();
   } catch(e) {
     toast('Gagal menyimpan: ' + e.message, 'error');
+    loadLinks();
   } finally {
     btn.disabled = false; btn.textContent = 'Simpan';
   }
 }
 
-async function deleteLink(id, idx) {
+async function deleteLink(idx) {
   const lk = linkItems[idx];
-  if (!confirm(`Hapus link "${lk.label}"?`)) return;
+  if (!lk || !confirm(`Hapus link "${lk.label}"?`)) return;
   try {
-    await sbFetch(`link_cards?id=eq.${id}`, 'DELETE');
+    linkItems.splice(idx, 1);
+    await persistLinks(`admin: hapus link "${lk.label}"`);
+    if (lk.icon) await deleteFile(`${ASSET_DIR}/${lk.icon}`, 'admin: hapus ikon');
     toast('Link dihapus.', 'success');
-    await loadLinks();
+    renderLinks();
   } catch(e) {
     toast('Gagal hapus: ' + e.message, 'error');
+    loadLinks();
   }
 }
 

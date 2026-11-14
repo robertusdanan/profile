@@ -10,14 +10,13 @@ Halaman profil personal dengan latar belakang tata surya 3D interaktif, dibangun
 
 ## ✨ Fitur
 
-- **Tata Surya 3D** — Animasi real-time dengan Bumi, Bulan, Matahari, dan semua planet tata surya menggunakan Three.js r128
+- **Tata Surya 3D** — Animasi real-time Matahari, planet, dan Bulan dengan Three.js r128
 - **Latar Bintang Berlapis** — Star field multi-layer dengan Milky Way backdrop
-- **Data Dinamis via Supabase** — Profil, avatar, dan link card dimuat dari database; fallback statis tersedia jika koneksi gagal
-- **Konfig Aman via GitHub Actions** — API key tidak pernah masuk ke repo; di-inject saat deploy melalui secret
-- **Desain Glassmorphism** — Kartu profil dengan efek blur, gradient, dan animasi CSS halus
-- **Responsif Mobile** — Layout dan posisi planet menyesuaikan viewport kecil secara otomatis
-- **Modal Konfirmasi Link** — Setiap tautan dibuka lewat modal dengan preview sebelum redirect
-- **Open Graph / Twitter Card** — Meta tag siap pakai untuk preview di WhatsApp, Twitter, dan Facebook
+- **100% GitHub** — Tanpa database, tanpa secret, tanpa server. Data = file JSON, gambar = file di repo
+- **Admin Panel** — `/admin.html` mengedit profil & link lewat GitHub API (setiap perubahan = 1 commit, riwayat lengkap di git)
+- **Desain Glassmorphism** — Kartu profil dengan blur, gradient, dan animasi CSS halus
+- **Responsif Mobile** — Layout dan posisi planet menyesuaikan viewport kecil
+- **Open Graph / Twitter Card** — Meta tag siap pakai untuk preview sosmed
 
 ---
 
@@ -26,10 +25,10 @@ Halaman profil personal dengan latar belakang tata surya 3D interaktif, dibangun
 | Layer | Teknologi |
 |---|---|
 | Rendering 3D | [Three.js r128](https://threejs.org/) |
-| Database | [Supabase](https://supabase.com/) (PostgreSQL + Storage) |
-| Hosting | GitHub Pages |
-| CI/CD | GitHub Actions |
-| Font | Inter · Sora · JetBrains Mono (Google Fonts) |
+| Data | File JSON di `data/` |
+| Aset | Gambar di `assets/` (avatar, ikon, tekstur planet) |
+| Hosting + CI/CD | GitHub Pages + GitHub Actions |
+| Admin | GitHub Contents API (fine-grained token) |
 
 ---
 
@@ -37,81 +36,52 @@ Halaman profil personal dengan latar belakang tata surya 3D interaktif, dibangun
 
 ```
 profile/
-├── index.html           # Halaman utama (UI + Three.js + logika app)
-├── admin.html           # Panel admin (manajemen profil & link)
-├── config.js            # ⚠️  Di-generate GitHub Actions — JANGAN commit
-├── config.template.js   # Template konfigurasi dengan placeholder
-├── favicon.ico          # Favicon
-└── og.jpg               # Open Graph image untuk preview sosmed
+├── index.html              # Halaman utama (UI + Three.js)
+├── admin.html              # Panel admin (commit lewat GitHub API)
+├── data/
+│   ├── profile.json        # nama, handle, tagline, avatar
+│   └── links.json          # daftar link card
+├── assets/
+│   ├── avatar-*.jpg        # foto profil
+│   ├── icons/              # ikon link kustom
+│   └── textures/           # sun.jpg, earth.jpg, ... saturn_ring.png
+├── scripts/
+│   └── migrate-from-supabase.mjs   # sekali pakai (boleh dihapus setelah migrasi)
+├── favicon.ico
+├── og.jpg
+└── .github/workflows/deploy.yml
 ```
 
 ---
 
-## ⚙️ Cara Deploy
+## ⚙️ Setup
 
-### 1. Fork / Clone repo ini
+1. **Pages**: Settings → Pages → Source: `GitHub Actions`
+2. **Push** ke `main` — workflow menyalin `index.html`, `admin.html`, `data/`, `assets/` ke Pages.
+3. **Token admin** (sekali, di perangkat Anda):
+   GitHub → Settings → Developer settings → *Fine-grained tokens* → Generate:
+   - Repository access: **Only select repositories** → repo ini
+   - Permissions: **Contents → Read and write**
+   - Buka `/admin.html`, tempel token + isi `pemilik/repo`.
 
-```bash
-git clone https://github.com/robertusdanan/robertusdanan.github.io.git
-```
+Perubahan dari admin ter-deploy ±1 menit setelah commit.
 
-### 2. Buat project di Supabase
-
-Buat dua tabel:
-
-**Tabel `profile`**
-| Kolom | Tipe |
-|---|---|
-| `name` | text |
-| `handle` | text |
-| `tagline` | text |
-| `avatar_type` | text |
-| `avatar_data` | text (base64) |
-
-**Tabel `link_cards`**
-| Kolom | Tipe |
-|---|---|
-| `label` | text |
-| `sub` | text |
-| `url` | text |
-| `domain` | text |
-| `description` | text |
-| `btn_label` | text |
-| `icon_type` | text |
-| `icon_data` | text |
-| `icon_mime` | text |
-| `is_active` | boolean |
-| `sort_order` | integer |
-
-### 3. Tambahkan GitHub Secrets
-
-Di repo → **Settings → Secrets and variables → Actions**, tambahkan:
-
-| Secret | Keterangan |
-|---|---|
-| `SUPABASE_URL` | URL project Supabase kamu |
-| `SUPABASE_ANON` | Anon/public key Supabase |
-| `SUPABASE_SERVICE_ROLE` | Service role key (untuk admin panel) |
-
-### 4. Aktifkan GitHub Pages
-
-Di **Settings → Pages**, pilih source: `GitHub Actions`.
-
-### 5. Push & deploy
+### Migrasi dari Supabase (sekali jalan)
 
 ```bash
-git push origin main
+SUPABASE_URL=https://xxxx.supabase.co SUPABASE_ANON=eyJ... node scripts/migrate-from-supabase.mjs
+git add -A && git commit -m "migrate: Supabase → GitHub" && git push
 ```
 
-GitHub Actions akan otomatis me-replace placeholder di `config.template.js` dan men-deploy ke GitHub Pages.
+Skrip menyalin tabel `profile`, `link_cards`, bucket `media`, dan bucket `textures` ke repo.
 
 ---
 
 ## 🔒 Keamanan
 
-- `config.js` (berisi API key nyata) masuk `.gitignore` dan **tidak pernah di-commit**
-- Key di-inject hanya saat build oleh GitHub Actions menggunakan repository secrets
-- Supabase Row Level Security (RLS) sangat disarankan untuk tabel `profile` dan `link_cards`
+- Tidak ada lagi key rahasia di situs. Admin Panel hanya bekerja jika Anda memasukkan token pribadi, yang disimpan di browser Anda dan tidak pernah di repo.
+- Gunakan token **fine-grained, hanya untuk repo ini**, dengan masa berlaku terbatas.
+- Semua isi repo bersifat publik jika repo publik — jangan simpan data pribadi di `data/`.
 
 ---
 

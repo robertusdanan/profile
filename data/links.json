@@ -1,0 +1,5 @@
+[
+  { "id": 1, "label": "Saweria", "sub": "Support karya saya", "url": "https://saweria.co/robertusdanan", "domain": "saweria.co/robertusdanan", "description": "Setiap dukunganmu sangat berarti.", "btn_label": "Support Sekarang", "icon_type": "saweria", "icon": null, "is_active": true, "sort_order": 0 },
+  { "id": 2, "label": "Instagram", "sub": "@robertusdanan", "url": "https://www.instagram.com/robertusdanan", "domain": "instagram.com/robertusdanan", "description": "Follow untuk konten terbaru.", "btn_label": "Buka Instagram", "icon_type": "instagram", "icon": null, "is_active": true, "sort_order": 1 },
+  { "id": 3, "label": "GitHub", "sub": "robertusdanan", "url": "https://github.com/robertusdanan", "domain": "github.com/robertusdanan", "description": "Jelajahi proyek open-source.", "btn_label": "Buka GitHub", "icon_type": "github", "icon": null, "is_active": true, "sort_order": 2 }
+]
