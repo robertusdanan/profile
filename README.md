@@ -4,7 +4,7 @@
 
 Halaman profil personal dengan latar belakang tata surya 3D interaktif, dibangun menggunakan Three.js murni dan ditenagai data dari file JSON di repo ini.
 
-🔗 **Live:** [robertusdanan.github.io](https://robertusdanan.github.io/)
+🔗 **Live:** [robertusdanan.github.io](https://robertusdanan.github.io/profile/)
 
 ---
 
