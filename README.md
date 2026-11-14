@@ -2,7 +2,7 @@
 
 > **Creator · Developer · Dreamer**
 
-Halaman profil personal dengan latar belakang tata surya 3D interaktif, dibangun menggunakan Three.js murni dan ditenagai data dinamis dari Supabase.
+Halaman profil personal dengan latar belakang tata surya 3D interaktif, dibangun menggunakan Three.js murni dan ditenagai data dari file JSON di repo ini.
 
 🔗 **Live:** [robertusdanan.github.io](https://robertusdanan.github.io/)
 
@@ -13,7 +13,7 @@ Halaman profil personal dengan latar belakang tata surya 3D interaktif, dibangun
 - **Tata Surya 3D** — Animasi real-time Matahari, planet, dan Bulan dengan Three.js r128
 - **Latar Bintang Berlapis** — Star field multi-layer dengan Milky Way backdrop
 - **100% GitHub** — Tanpa database, tanpa secret, tanpa server. Data = file JSON, gambar = file di repo
-- **Admin Panel** — `/admin.html` mengedit profil & link lewat GitHub API (setiap perubahan = 1 commit, riwayat lengkap di git)
+- **Update lewat GitHub** — edit `data/*.json` langsung di GitHub (atau git); tiap commit otomatis ter-deploy
 - **Desain Glassmorphism** — Kartu profil dengan blur, gradient, dan animasi CSS halus
 - **Responsif Mobile** — Layout dan posisi planet menyesuaikan viewport kecil
 - **Open Graph / Twitter Card** — Meta tag siap pakai untuk preview sosmed
@@ -28,7 +28,6 @@ Halaman profil personal dengan latar belakang tata surya 3D interaktif, dibangun
 | Data | File JSON di `data/` |
 | Aset | Gambar di `assets/` (avatar, ikon, tekstur planet) |
 | Hosting + CI/CD | GitHub Pages + GitHub Actions |
-| Admin | GitHub Contents API (fine-grained token) |
 
 ---
 
@@ -37,16 +36,13 @@ Halaman profil personal dengan latar belakang tata surya 3D interaktif, dibangun
 ```
 profile/
 ├── index.html              # Halaman utama (UI + Three.js)
-├── admin.html              # Panel admin (commit lewat GitHub API)
 ├── data/
 │   ├── profile.json        # nama, handle, tagline, avatar
 │   └── links.json          # daftar link card
 ├── assets/
-│   ├── avatar-*.jpg        # foto profil
+│   ├── avatar.jpg          # foto profil
 │   ├── icons/              # ikon link kustom
 │   └── textures/           # sun.jpg, earth.jpg, ... saturn_ring.png
-├── scripts/
-│   └── migrate-from-supabase.mjs   # sekali pakai (boleh dihapus setelah migrasi)
 ├── favicon.ico
 ├── og.jpg
 └── .github/workflows/deploy.yml
@@ -54,39 +50,44 @@ profile/
 
 ---
 
-## ⚙️ Setup
+## ⚙️ Setup (sekali)
 
-1. **Pages**: Settings → Pages → Source: `GitHub Actions`
-2. **Push** ke `main` — workflow menyalin `index.html`, `admin.html`, `data/`, `assets/` ke Pages.
-3. **Token admin** (sekali, di perangkat Anda):
-   GitHub → Settings → Developer settings → *Fine-grained tokens* → Generate:
-   - Repository access: **Only select repositories** → repo ini
-   - Permissions: **Contents → Read and write**
-   - Buka `/admin.html`, tempel token + isi `pemilik/repo`.
-
-Perubahan dari admin ter-deploy ±1 menit setelah commit.
-
-### Migrasi dari Supabase (sekali jalan, butuh Node.js 18+)
-
-```bash
-# 1. uji dulu tanpa menulis apa pun
-SUPABASE_URL=https://xxxx.supabase.co SUPABASE_ANON=eyJ... node scripts/migrate-from-supabase.mjs --dry-run
-# 2. jalankan sungguhan
-SUPABASE_URL=https://xxxx.supabase.co SUPABASE_ANON=eyJ... node scripts/migrate-from-supabase.mjs
-git add -A && git commit -m "migrate: Supabase → GitHub" && git push
-```
-
-PowerShell: `$env:SUPABASE_URL="https://xxxx.supabase.co"; $env:SUPABASE_ANON="eyJ..."; node scripts/migrate-from-supabase.mjs`
-
-Skrip menyalin tabel `profile` & `link_cards`, avatar, dan ikon link (bucket `media`). File di `assets/` tidak pernah ditimpa (termasuk `assets/textures/`), dan aman dijalankan ulang.
+Settings → Pages → Source: **GitHub Actions**, lalu push ke `main`. Selesai — tidak ada secret, database, maupun server.
 
 ---
 
-## 🔒 Keamanan
+## ✏️ Cara memperbarui
 
-- Tidak ada lagi key rahasia di situs. Admin Panel hanya bekerja jika Anda memasukkan token pribadi, yang disimpan di browser Anda dan tidak pernah di repo.
-- Gunakan token **fine-grained, hanya untuk repo ini**, dengan masa berlaku terbatas.
-- Semua isi repo bersifat publik jika repo publik — jangan simpan data pribadi di `data/`.
+Buka file di GitHub → ikon ✏️ (Edit) → **Commit changes**. Situs ter-update ±1 menit.
+
+**Ubah profil** — edit `data/profile.json`:
+```json
+{ "name": "Robertus Danan", "handle": "@robertusdanan", "tagline": "Creator · VibeCoder · TraderBot", "avatar": "avatar.jpg" }
+```
+`avatar` = nama file di folder `assets/` (isi `null` untuk memakai inisial).
+
+**Ubah / tambah link** — edit `data/links.json`. Satu link:
+```json
+{
+  "id": 8,
+  "label": "Judul",
+  "sub": "Teks kecil di bawah judul",
+  "url": "https://contoh.com",
+  "domain": "contoh.com",
+  "description": "Teks di jendela konfirmasi",
+  "btn_label": "Buka Halaman",
+  "icon_type": "custom",
+  "icon": "icons/8.png",
+  "is_active": true,
+  "sort_order": 5
+}
+```
+- `id` harus unik. Urutan tampil mengikuti `sort_order` (kecil → besar).
+- `icon_type`: `saweria`, `instagram`, `github` (ikon bawaan, `icon` isi `null`) atau `custom` (pakai gambar di `icon`).
+- `is_active: false` = disembunyikan tanpa dihapus.
+- Hati-hati koma antar-item JSON (item terakhir tanpa koma). Kalau JSON salah, situs memakai data cadangan.
+
+**Ganti foto / ikon** — di GitHub: buka folder `assets/` (atau `assets/icons/`) → **Add file → Upload files** → commit. Lalu sesuaikan nama file di JSON. Pakai nama file baru (mis. `avatar-2.jpg`) agar tidak tertahan cache browser. Ukuran yang disarankan: avatar ≤ 500 KB, ikon ≤ 100 KB.
 
 ---
 
