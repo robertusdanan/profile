@@ -1,67 +1,40 @@
 name: Deploy to GitHub Pages
 
+# Tanpa secret & tanpa database: situs murni file statis di repo ini.
+# Setiap commit ke main (termasuk dari Admin Panel) otomatis ter-deploy.
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Generate config.js
-        env:
-          SUPABASE_URL:          ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON:         ${{ secrets.SUPABASE_ANON }}
-          SUPABASE_SERVICE_ROLE: ${{ secrets.SERVICE_ROLE }}
+      - name: Siapkan file situs
         run: |
-          # Gagalkan build lebih awal kalau ada secret yang kosong/belum di-set,
-          # supaya tidak diam-diam ke-deploy dengan config.js yang rusak.
-          missing=""
-          [ -z "$SUPABASE_URL" ]          && missing="$missing SUPABASE_URL"
-          [ -z "$SUPABASE_ANON" ]         && missing="$missing SUPABASE_ANON"
-          [ -z "$SUPABASE_SERVICE_ROLE" ] && missing="$missing SUPABASE_SERVICE_ROLE"
-          if [ -n "$missing" ]; then
-            echo "ERROR: Secret berikut kosong/belum di-set di Settings > Secrets and variables > Actions:$missing"
-            exit 1
-          fi
+          mkdir _site
+          cp index.html admin.html favicon.ico og.jpg _site/
+          cp -r data assets _site/
+          touch _site/.nojekyll
 
-          sed \
-            -e "s|PLACEHOLDER_SUPABASE_URL|${SUPABASE_URL}|g" \
-            -e "s|PLACEHOLDER_SUPABASE_ANON|${SUPABASE_ANON}|g" \
-            -e "s|PLACEHOLDER_SUPABASE_SERVICE_ROLE|${SUPABASE_SERVICE_ROLE}|g" \
-            config.template.js > config.js
-
-          if grep -q "PLACEHOLDER" config.js; then
-            echo "ERROR: Masih ada placeholder yang belum terganti. Cek GitHub Secrets!"
-            exit 1
-          fi
-          echo "config.js OK"
-
-      - name: Deploy ke gh-pages
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          mkdir -p /tmp/deploy
-          cp index.html  /tmp/deploy/
-          cp admin.html  /tmp/deploy/ 2>/dev/null || true
-          cp config.js   /tmp/deploy/
-          cp favicon.ico /tmp/deploy/ 2>/dev/null || true
-          cp og.jpg      /tmp/deploy/ 2>/dev/null || true
-
-          cd /tmp/deploy
-          git init
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git"
-          git checkout -b gh-pages
-          git add -A
-          git commit -m "deploy: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
-          git push -f origin gh-pages
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4
