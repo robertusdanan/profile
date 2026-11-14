@@ -1,73 +1,123 @@
 #!/usr/bin/env node
-// Salin SEMUA data & aset dari Supabase ke folder repo (sekali jalan).
+// Migrasi sekali jalan: Supabase → file di repo ini.
 //
-//   SUPABASE_URL=https://xxxx.supabase.co SUPABASE_ANON=eyJ... node scripts/migrate-from-supabase.mjs
+// Cara pakai (dari folder root repo, butuh Node.js 18+):
+//   macOS/Linux : SUPABASE_URL=https://xxxx.supabase.co SUPABASE_ANON=eyJ... node scripts/migrate-from-supabase.mjs
+//   PowerShell  : $env:SUPABASE_URL="https://xxxx.supabase.co"; $env:SUPABASE_ANON="eyJ..."; node scripts/migrate-from-supabase.mjs
 //
-// Hanya butuh anon key (data profile/link_cards & bucket publik memang sudah publik).
-// Hasil: data/profile.json, data/links.json, assets/avatar.*, assets/icons/*, assets/textures/*
-// Setelah selesai: git add -A && git commit && git push
-import { mkdir, writeFile } from 'node:fs/promises';
-import { dirname } from 'node:path';
+// Opsi:
+//   --dry-run   hanya tampilkan apa yang akan dilakukan, tanpa menulis file apa pun
+//
+// Aturan aman:
+//   • File di assets/ TIDAK PERNAH ditimpa (kalau sudah ada → dilewati). Tekstur planet tidak disentuh.
+//   • data/profile.json & data/links.json diisi dari Supabase; versi lama dicadangkan ke *.bak.
+//   • Hanya butuh anon key (cukup untuk membaca data publik). Service-role key TIDAK diperlukan.
+import { mkdir, writeFile, readFile, rename, access } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const URL_  = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
-const ANON  = process.env.SUPABASE_ANON || '';
-if (!URL_ || !ANON) { console.error('Set SUPABASE_URL dan SUPABASE_ANON dulu.'); process.exit(1); }
+const ROOT    = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const DRY     = process.argv.includes('--dry-run');
+const BASE    = (process.env.SUPABASE_URL || '').trim().replace(/\/+$/, '');
+const ANON    = (process.env.SUPABASE_ANON || '').trim();
+const HEADERS = { apikey: ANON, Authorization: `Bearer ${ANON}`, Accept: 'application/json' };
+const EXT     = { jpeg: 'jpg', jpg: 'jpg', png: 'png', webp: 'webp', gif: 'gif', svg: 'svg', 'svg+xml': 'svg' };
+const stats   = { written: [], skipped: [], missing: [] };
 
-const H = { apikey: ANON, Authorization: `Bearer ${ANON}` };
-const EXT = { jpeg: 'jpg', jpg: 'jpg', png: 'png', webp: 'webp', 'svg+xml': 'svg', svg: 'svg', gif: 'gif' };
+if (!BASE || !ANON) {
+  console.error('SUPABASE_URL dan SUPABASE_ANON belum diisi. Lihat petunjuk di bagian atas file ini.');
+  process.exit(1);
+}
+if (typeof fetch !== 'function') { console.error('Butuh Node.js 18 atau lebih baru.'); process.exit(1); }
 
-async function save(path, buf) { await mkdir(dirname(path), { recursive: true }); await writeFile(path, buf); }
-async function rest(table, q = '') {
-  const r = await fetch(`${URL_}/rest/v1/${table}?${q}`, { headers: H });
-  if (!r.ok) throw new Error(`${table}: HTTP ${r.status}`);
+const exists = p => access(p).then(() => true, () => false);
+const safe   = s => String(s).replace(/[^\w.-]+/g, '_');
+
+async function rest(table, query) {
+  const r = await fetch(`${BASE}/rest/v1/${table}?${query}`, { headers: HEADERS });
+  if (!r.ok) {
+    const hint = r.status === 401 || r.status === 403 ? ' (anon key salah / RLS melarang baca)' : '';
+    throw new Error(`Tabel "${table}": HTTP ${r.status}${hint}`);
+  }
   return r.json();
 }
-async function bucketFile(bucket, name) {
-  const r = await fetch(`${URL_}/storage/v1/object/public/${bucket}/${name}`);
+
+async function download(bucket, objectPath) {
+  const enc = objectPath.replace(/^\/+/, '').split('/').map(encodeURIComponent).join('/');
+  const r = await fetch(`${BASE}/storage/v1/object/public/${bucket}/${enc}`);
   return r.ok ? Buffer.from(await r.arrayBuffer()) : null;
 }
 
-// ── profil ──
+// Simpan aset; tidak pernah menimpa file yang sudah ada.
+async function saveAsset(rel, buf) {
+  const abs = resolve(ROOT, 'assets', rel);
+  if (await exists(abs)) { stats.skipped.push(`assets/${rel}`); return false; }
+  if (!DRY) { await mkdir(dirname(abs), { recursive: true }); await writeFile(abs, buf); }
+  stats.written.push(`assets/${rel}`);
+  return true;
+}
+
+// Simpan JSON data; versi lama dicadangkan ke .bak
+async function saveData(file, obj) {
+  const abs = resolve(ROOT, 'data', file);
+  if (!DRY) {
+    await mkdir(dirname(abs), { recursive: true });
+    if (await exists(abs)) await rename(abs, abs + '.bak');
+    await writeFile(abs, JSON.stringify(obj, null, 2) + '\n');
+  }
+  stats.written.push(`data/${file}`);
+}
+
+console.log(DRY ? '— DRY RUN: tidak ada file yang ditulis —\n' : '');
+
+try {
+
+// ── 1. Profil ────────────────────────────────────────────
 const [p] = await rest('profile', 'select=*&limit=1');
+if (!p) console.warn('! Tabel profile kosong — profile.json diisi nilai kosong.');
 const profile = { name: p?.name || '', handle: p?.handle || '', tagline: p?.tagline || '', avatar: null };
 if (p?.avatar_data && p.avatar_data !== 'empty') {
-  const ext = EXT[p.avatar_type] || 'jpg';
-  profile.avatar = `avatar.${ext}`;
-  await save(`assets/${profile.avatar}`, Buffer.from(p.avatar_data, 'base64'));
-  console.log('✓ avatar →', profile.avatar);
+  const rel = `avatar.${EXT[(p.avatar_type || 'jpeg').toLowerCase()] || 'jpg'}`;
+  await saveAsset(rel, Buffer.from(p.avatar_data, 'base64'));
+  profile.avatar = rel;                       // tetap menunjuk ke file (baru atau yang sudah ada)
 }
-await save('data/profile.json', JSON.stringify(profile, null, 2) + '\n');
-console.log('✓ data/profile.json');
+await saveData('profile.json', profile);
 
-// ── link ──
-const rows = await rest('link_cards', 'select=*&order=sort_order.asc');
+// ── 2. Link cards ────────────────────────────────────────
+const rows  = await rest('link_cards', 'select=*&order=sort_order.asc');
 const links = [];
 for (const r of rows) {
   let icon = null;
   if (r.icon_type === 'custom' && r.icon_data) {
-    if (r.icon_data.length < 256) {                       // path di bucket "media"
-      const buf = await bucketFile('media', r.icon_data.replace(/^\//, ''));
-      if (buf) { icon = `icons/${r.id}-${r.icon_data.split('/').pop()}`; await save(`assets/${icon}`, buf); }
-      else console.warn('! ikon tidak ditemukan di bucket media:', r.icon_data);
-    } else {                                              // base64 inline
-      icon = `icons/${r.id}.${EXT[r.icon_mime] || 'png'}`;
-      await save(`assets/${icon}`, Buffer.from(r.icon_data, 'base64'));
+    if (r.icon_data.length < 256) {                         // path file di bucket "media"
+      const name = safe(r.icon_data.split('/').pop());
+      const buf  = await download('media', r.icon_data);
+      if (buf) { icon = `icons/${r.id}-${name}`; await saveAsset(icon, buf); }
+      else     { stats.missing.push(`media/${r.icon_data} (link "${r.label}")`); }
+    } else {                                                // base64 tersimpan langsung di tabel
+      icon = `icons/${r.id}.${EXT[(r.icon_mime || 'png').toLowerCase()] || 'png'}`;
+      await saveAsset(icon, Buffer.from(r.icon_data, 'base64'));
     }
   }
   links.push({
     id: r.id, label: r.label || '', sub: r.sub || '', url: r.url || '', domain: r.domain || '',
     description: r.description || '', btn_label: r.btn_label || 'Buka Halaman',
-    icon_type: r.icon_type || 'custom', icon, is_active: r.is_active !== false, sort_order: r.sort_order ?? 0,
+    icon_type: r.icon_type || 'custom', icon,
+    is_active: r.is_active !== false, sort_order: r.sort_order ?? 0,
   });
 }
-await save('data/links.json', JSON.stringify(links, null, 2) + '\n');
-console.log(`✓ data/links.json (${links.length} link)`);
+await saveData('links.json', links);
 
-// ── tekstur planet (bucket "textures") ──
-const TEX = ['sun.jpg','mercury.jpg','venus.jpg','earth.jpg','mars.jpg','jupiter.jpg','saturn.jpg','uranus.jpg','neptune.jpg','moon.jpg','saturn_ring.png'];
-for (const t of TEX) {
-  const buf = await bucketFile('textures', t);
-  if (buf) { await save(`assets/textures/${t}`, buf); console.log('✓ tekstur', t, `(${(buf.length/1024).toFixed(0)} KB)`); }
-  else console.warn('! tekstur tidak ada:', t);
+// ── Ringkasan ────────────────────────────────────────────
+console.log(`Profil : ${profile.name || '(kosong)'} ${profile.handle}`);
+console.log(`Link   : ${links.length} (${links.filter(l => l.is_active).length} aktif)\n`);
+console.log(`${DRY ? 'Akan ditulis' : 'Ditulis'} (${stats.written.length}):`); stats.written.forEach(f => console.log('  +', f));
+if (stats.skipped.length) { console.log(`Dilewati karena sudah ada (${stats.skipped.length}):`); stats.skipped.forEach(f => console.log('  =', f)); }
+if (stats.missing.length) { console.log(`PERINGATAN — tidak ditemukan di Supabase (${stats.missing.length}):`); stats.missing.forEach(f => console.log('  !', f)); }
+console.log(DRY ? '\nJalankan lagi tanpa --dry-run untuk menulis.' :
+  '\nSelesai. Periksa hasilnya, lalu:\n  git add -A && git commit -m "migrate: Supabase → GitHub" && git push');
+} catch (e) {
+  console.error('\nGAGAL: ' + e.message + '\nTidak ada perubahan yang dianggap selesai — perbaiki masalahnya lalu jalankan ulang (aman diulang).');
+  process.exit(1);
 }
-console.log('\nSelesai. Cek hasilnya lalu: git add -A && git commit -m "migrate: Supabase → GitHub" && git push');
+

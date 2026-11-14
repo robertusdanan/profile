@@ -1,5 +1,67 @@
 [
-  { "id": 1, "label": "Saweria", "sub": "Support karya saya", "url": "https://saweria.co/robertusdanan", "domain": "saweria.co/robertusdanan", "description": "Setiap dukunganmu sangat berarti.", "btn_label": "Support Sekarang", "icon_type": "saweria", "icon": null, "is_active": true, "sort_order": 0 },
-  { "id": 2, "label": "Instagram", "sub": "@robertusdanan", "url": "https://www.instagram.com/robertusdanan", "domain": "instagram.com/robertusdanan", "description": "Follow untuk konten terbaru.", "btn_label": "Buka Instagram", "icon_type": "instagram", "icon": null, "is_active": true, "sort_order": 1 },
-  { "id": 3, "label": "GitHub", "sub": "robertusdanan", "url": "https://github.com/robertusdanan", "domain": "github.com/robertusdanan", "description": "Jelajahi proyek open-source.", "btn_label": "Buka GitHub", "icon_type": "github", "icon": null, "is_active": true, "sort_order": 2 }
+  {
+    "id": 1,
+    "label": "Trakteer",
+    "sub": "Support Me!!",
+    "url": "https://trakteer.id/robertusdanan",
+    "domain": "Trakteer Robertus Danan",
+    "description": "Your support means the world to me and motivates me to keep creating better. ❤️",
+    "btn_label": "Click Here",
+    "icon_type": "custom",
+    "icon": "icons/1.png",
+    "is_active": true,
+    "sort_order": 0
+  },
+  {
+    "id": 7,
+    "label": "Youtube",
+    "sub": "@gloomwitness",
+    "url": "https://www.youtube.com/@gloomwitness",
+    "domain": "Gloomwitness",
+    "description": "Dark History & Unsolved Mysteries. Cinematic true - crime documentaries every Wednesday, Friday & Sunday.",
+    "btn_label": "Click Here",
+    "icon_type": "custom",
+    "icon": "icons/7.webp",
+    "is_active": true,
+    "sort_order": 1
+  },
+  {
+    "id": 3,
+    "label": "GitHub",
+    "sub": "robertusdanan",
+    "url": "https://github.com/robertusdanan",
+    "domain": "github.com/robertusdanan",
+    "description": "Explore the open-source projects and repositories I’m working on.",
+    "btn_label": "Click Here",
+    "icon_type": "github",
+    "icon": null,
+    "is_active": true,
+    "sort_order": 2
+  },
+  {
+    "id": 2,
+    "label": "Instagram",
+    "sub": "@robertusdanan",
+    "url": "https://www.instagram.com/robertusdanan",
+    "domain": "instagram.com/robertusdanan",
+    "description": "Follow my journey, daily moments, and a little glimpse into my life beyond work.",
+    "btn_label": "Click Here",
+    "icon_type": "instagram",
+    "icon": null,
+    "is_active": true,
+    "sort_order": 3
+  },
+  {
+    "id": 6,
+    "label": "Company Profile",
+    "sub": "",
+    "url": "https://kaventara.id/",
+    "domain": "KAVENTARA.ID",
+    "description": "Mitra pengadaan barang & jasa serta solusi teknologi digital bagi sekolah, pondok pesantren, pemerintah desa, koperasi, klinik, dan perusahaan swasta",
+    "btn_label": "Buka Halaman",
+    "icon_type": "custom",
+    "icon": "icons/6.png",
+    "is_active": false,
+    "sort_order": 4
+  }
 ]

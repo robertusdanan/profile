@@ -66,14 +66,19 @@ profile/
 
 Perubahan dari admin ter-deploy ±1 menit setelah commit.
 
-### Migrasi dari Supabase (sekali jalan)
+### Migrasi dari Supabase (sekali jalan, butuh Node.js 18+)
 
 ```bash
+# 1. uji dulu tanpa menulis apa pun
+SUPABASE_URL=https://xxxx.supabase.co SUPABASE_ANON=eyJ... node scripts/migrate-from-supabase.mjs --dry-run
+# 2. jalankan sungguhan
 SUPABASE_URL=https://xxxx.supabase.co SUPABASE_ANON=eyJ... node scripts/migrate-from-supabase.mjs
 git add -A && git commit -m "migrate: Supabase → GitHub" && git push
 ```
 
-Skrip menyalin tabel `profile`, `link_cards`, bucket `media`, dan bucket `textures` ke repo.
+PowerShell: `$env:SUPABASE_URL="https://xxxx.supabase.co"; $env:SUPABASE_ANON="eyJ..."; node scripts/migrate-from-supabase.mjs`
+
+Skrip menyalin tabel `profile` & `link_cards`, avatar, dan ikon link (bucket `media`). File di `assets/` tidak pernah ditimpa (termasuk `assets/textures/`), dan aman dijalankan ulang.
 
 ---
 
